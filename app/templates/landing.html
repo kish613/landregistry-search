@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Corporate Land Registry - Search land ownership by company name, number, or address. Access 120+ million land records linked to corporate entities.">
+    <meta name="robots" content="index, follow">
+    <title>Corporate Land Registry | LandRegistry.io</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Geist', system-ui, sans-serif;
+            background-color: #09090b;
+        }
+        h1, h2, h3, h4 {
+            font-family: 'Geist', system-ui, sans-serif;
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #18181b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #27272a;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3f3f46;
+        }
+        /* Glassmorphism */
+        .glass-panel {
+            background: rgba(24, 24, 27, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
+        .glass-dropdown {
+            background: rgba(24, 24, 27, 0.95);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        }
+        /* Text glow effect */
+        .text-glow {
+            text-shadow: 0 0 40px rgba(255,255,255,0.1);
+        }
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(255,255,255,0.1); }
+            50% { box-shadow: 0 0 40px rgba(255,255,255,0.2); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.6s ease-out forwards;
+        }
+        .animate-fade-in-up {
+            animation: fadeInUp 0.8s ease-out forwards;
+        }
+        .animate-delay-100 { animation-delay: 0.1s; }
+        .animate-delay-200 { animation-delay: 0.2s; }
+        .animate-delay-300 { animation-delay: 0.3s; }
+        .animate-delay-400 { animation-delay: 0.4s; }
+        /* Gradient text */
+        .gradient-text {
+            background: linear-gradient(135deg, #ffffff 0%, #a1a1aa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        /* Hover card effect */
+        .hover-lift {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .hover-lift:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        }
+        /* Input styles */
+        input {
+            background: transparent;
+            outline: none;
+            color: white;
+        }
+        input::placeholder {
+            color: #71717a;
+        }
+        
+        /* ========== NEW LOGO STYLES ========== */
+        /* Logo Container */
+        .logo-link {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: opacity 0.3s ease;
+        }
+        .logo-link:hover {
+            opacity: 0.9;
+        }
+        
+        .logo-svg-container {
+            width: 44px;
+            height: 44px;
+            cursor: pointer;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .logo-link:hover .logo-svg-container {
+            transform: scale(1.05);
+        }
+        
+        .logo-svg-container svg {
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+        }
+        
+        /* Rim Light Animation */
+        .rim-light {
+            stroke-dasharray: 500;
+            stroke-dashoffset: 500;
+            opacity: 0.7;
+            transition: stroke-dashoffset 1.5s ease-in-out;
+        }
+        .logo-link:hover .rim-light {
+            stroke-dashoffset: 0;
+        }
+        
+        /* Gold Bevel Hover */
+        .gold-bevel {
+            transition: filter 0.3s ease;
+        }
+        .logo-link:hover .gold-bevel {
+            filter: brightness(1.25);
+        }
+        
+        /* Security Pattern Reveal */
+        .security-pattern {
+            opacity: 0.15;
+            transition: opacity 0.5s ease;
+        }
+        .logo-link:hover .security-pattern {
+            opacity: 0.35;
+        }
+        
+        /* Logo Text Styles */
+        .logo-text {
+            font-family: 'Geist', system-ui, sans-serif;
+            font-weight: 700;
+            font-size: 1rem;
+            color: #fafafa;
+            letter-spacing: -0.02em;
+        }
+        .logo-text .domain {
+            font-weight: 300;
+            color: #2a7a85;
+        }
+        
+        /* Page Load Animation for Logo */
+        @keyframes logoFadeIn {
+            0% { opacity: 0; transform: scale(0.8) translateY(-10px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        @keyframes logoShimmer {
+            0% { stroke-dashoffset: 500; }
+            100% { stroke-dashoffset: 0; }
+        }
+        @keyframes logoPulse {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.15); }
+        }
+        
+        .logo-svg-container {
+            animation: logoFadeIn 0.8s ease-out forwards;
+        }
+        .logo-svg-container .rim-light {
+            animation: logoShimmer 2s ease-in-out 0.5s forwards;
+        }
+        .logo-svg-container .gold-bevel {
+            animation: logoPulse 2s ease-in-out 1s;
+        }
+        /* ========== END LOGO STYLES ========== */
+    </style>
+</head>
+<body class="antialiased selection:bg-white/10 selection:text-white overflow-x-hidden text-zinc-400">
+    <!-- Navigation -->
+    <nav class="fixed z-[100] transition-all duration-300 bg-zinc-900/80 w-full border-white/5 border-b top-0 backdrop-blur-xl">
+        <div class="flex h-20 max-w-7xl mx-auto px-6 items-center justify-between">
+            <div class="flex gap-12 items-center">
+                <a href="/" class="logo-link">
+                    <div class="logo-svg-container">
+                        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <!-- Shield Gradient -->
+                                <linearGradient id="shieldGloss" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#0f2c52;stop-opacity:1" />
+                                    <stop offset="50%" style="stop-color:#1a4d6e;stop-opacity:1" />
+                                    <stop offset="52%" style="stop-color:#2a7a85;stop-opacity:1" />
+                                    <stop offset="100%" style="stop-color:#0f2c52;stop-opacity:1" />
+                                </linearGradient>
+                                <!-- Gold Face Gradient -->
+                                <linearGradient id="goldFace" x1="0%" y1="0%" x2="0%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#fce7f3;stop-opacity:1" />
+                                    <stop offset="20%" style="stop-color:#eab308;stop-opacity:1" />
+                                    <stop offset="100%" style="stop-color:#a16207;stop-opacity:1" />
+                                </linearGradient>
+                                <!-- Gold Edge Gradient -->
+                                <linearGradient id="goldEdge" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#854d0e;stop-opacity:1" />
+                                    <stop offset="100%" style="stop-color:#ca8a04;stop-opacity:1" />
+                                </linearGradient>
+                                <!-- Security Pattern -->
+                                <pattern id="secGrid" x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse">
+                                    <path d="M 10 0 L 0 0 0 10" fill="none" stroke="white" stroke-width="0.5" opacity="0.5"/>
+                                </pattern>
+                                <!-- Deep Shadow -->
+                                <filter id="deepShadow" x="-50%" y="-50%" width="200%" height="200%">
+                                    <feGaussianBlur in="SourceAlpha" stdDeviation="3" />
+                                    <feOffset dx="2" dy="4" result="offsetblur" />
+                                    <feComponentTransfer>
+                                        <feFuncA type="linear" slope="0.3" />
+                                    </feComponentTransfer>
+                                    <feMerge>
+                                        <feMergeNode />
+                                        <feMergeNode in="SourceGraphic" />
+                                    </feMerge>
+                                </filter>
+                            </defs>
+                            <g transform="translate(5, 5)">
+                                <!-- Shield Base -->
+                                <path class="shield-base" fill="url(#shieldGloss)" filter="url(#deepShadow)" d="
+                                    M 95,185
+                                    C 155,185 180,145 180,105
+                                    L 180,55
+                                    L 145,55
+                                    L 115,25   
+                                    L 55,25
+                                    L 20,60
+                                    L 20,105
+                                    C 20,145 45,185 95,185
+                                    Z
+                                "/>
+                                <!-- Rim Light Stroke -->
+                                <path class="rim-light" fill="none" stroke="#4fd1c5" stroke-width="2" d="
+                                    M 95,185
+                                    C 155,185 180,145 180,105
+                                    L 180,55
+                                    L 145,55
+                                    L 115,25   
+                                    L 55,25
+                                    L 20,60
+                                    L 20,105
+                                    C 20,145 45,185 95,185
+                                    Z
+                                "/>
+                                <!-- Document Pattern -->
+                                <path class="security-pattern" fill="url(#secGrid)" d="
+                                    M 115,25
+                                    L 145,55
+                                    L 145,105
+                                    C 145,145 125,175 95,175
+                                    C 55,175 30,145 30,105
+                                    L 30,60
+                                    L 55,25
+                                    Z
+                                " style="mix-blend-mode: overlay;"/>
+                                <!-- Top Fold -->
+                                <path fill="#0f3d5c" d="
+                                    M 180,55
+                                    L 145,55
+                                    L 145,25
+                                    C 145,25 180,25 180,55
+                                    Z
+                                "/>
+                                <path fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1" d="M 145,25 L 180,55" />
+                                <!-- Document Lines -->
+                                <g opacity="0.4">
+                                    <rect x="50" y="75" width="40" height="4" rx="2" fill="white" />
+                                    <rect x="50" y="87" width="60" height="4" rx="2" fill="white" />
+                                    <rect x="50" y="99" width="55" height="4" rx="2" fill="white" />
+                                    <rect x="50" y="111" width="35" height="4" rx="2" fill="white" />
+                                </g>
+                                <!-- Gold Checkmark -->
+                                <g class="checkmark-group" filter="url(#deepShadow)">
+                                    <path class="gold-edge" fill="url(#goldEdge)" d="
+                                        M 75,120
+                                        L 100,145
+                                        L 155,80
+                                        L 144,70
+                                        L 100,122
+                                        L 86,108
+                                        L 75,120
+                                        Z
+                                    "/>
+                                    <path class="gold-face gold-bevel" fill="url(#goldFace)" d="
+                                        M 77,118
+                                        L 100,141
+                                        L 151,80
+                                        L 142,72
+                                        L 100,122
+                                        L 86,108
+                                        L 77,118
+                                        Z
+                                    " transform="translate(0, -2)"/>
+                                    <path fill="white" opacity="0.4" d="M 100,141 L 105,135 L 100,122 Z" style="mix-blend-mode: soft-light;"/>
+                                </g>
+                            </g>
+                        </svg>
+                    </div>
+                    <span class="logo-text">landregistry<span class="domain">.company</span></span>
+                </a>
+
+                <div class="hidden md:flex gap-8 uppercase text-[10px] text-zinc-400 tracking-widest items-center font-medium">
+                    <a href="/search" class="hover:text-white transition-colors duration-300">
+                        Registry Search
+                    </a>
+                    <a href="#features" class="hover:text-white transition-colors duration-300">
+                        Features
+                    </a>
+                    <a href="#data-sources" class="hover:text-white transition-colors duration-300">
+                        Data Sources
+                    </a>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <a href="/search" class="uppercase hover:bg-zinc-200 transition-all duration-300 cursor-pointer text-[10px] font-semibold text-black tracking-widest bg-white rounded-lg px-4 py-2">
+                    Start Searching
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <header class="overflow-hidden bg-zinc-950 w-full min-h-screen relative border-b border-white/5 flex items-center">
+        <!-- Particles.js Background -->
+        <div id="particles-js" class="absolute inset-0 z-0"></div>
+        
+        <!-- Background Visuals -->
+        <div class="z-[1] absolute top-0 right-0 bottom-0 left-0 pointer-events-none">
+            <!-- Gradient orbs -->
+            <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-white/5 rounded-full blur-[100px]"></div>
+            <div class="absolute bottom-1/4 right-1/4 w-80 h-80 bg-zinc-500/10 rounded-full blur-[80px]"></div>
+            <div class="absolute bottom-0 left-0 w-full h-64 bg-gradient-to-t from-zinc-950 to-transparent"></div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex flex-col z-[2] h-full max-w-7xl mx-auto px-6 pt-32 pb-24 relative justify-center items-center text-center w-full">
+            <div class="max-w-4xl">
+                <div class="flex items-center justify-center gap-3 mb-8 animate-fade-in opacity-0" style="animation-delay: 0.1s">
+                    <span class="uppercase text-[10px] text-zinc-400 tracking-[0.3em] border border-white/10 px-4 py-1.5 rounded-full bg-white/5 flex items-center gap-2">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Official UK Data Source
+                    </span>
+                </div>
+
+                <h1 class="md:text-6xl lg:text-7xl xl:text-8xl leading-[0.95] text-glow text-5xl text-white tracking-tighter mb-8 font-medium animate-fade-in-up opacity-0" style="animation-delay: 0.2s">
+                    <span class="block">Corporate Land</span>
+                    <span class="block gradient-text">Registry Search</span>
+                </h1>
+
+                <p class="md:text-xl leading-relaxed text-lg font-light text-zinc-400 max-w-2xl mx-auto mb-12 animate-fade-in opacity-0" style="animation-delay: 0.4s">
+                    The authoritative database for corporate land ownership in England and Wales. Search property interests by company name, registration number, or site address.
+                </p>
+
+                <!-- CTA Buttons -->
+                <div class="flex flex-col sm:flex-row gap-4 justify-center items-center animate-fade-in opacity-0" style="animation-delay: 0.6s">
+                    <a href="/search" class="group bg-white text-black rounded-full px-8 py-4 flex items-center justify-center gap-3 hover:bg-zinc-200 transition-all shadow-[0_0_30px_rgba(255,255,255,0.15)] hover:shadow-[0_0_50px_rgba(255,255,255,0.25)]">
+                        <span class="text-sm tracking-wider uppercase font-semibold">
+                            Search Registry
+                        </span>
+                        <iconify-icon icon="solar:arrow-right-linear" width="16" class="group-hover:translate-x-1 transition-transform" stroke-width="2.5"></iconify-icon>
+                    </a>
+                    <a href="#features" class="text-zinc-400 hover:text-white transition-colors text-sm tracking-wider uppercase font-medium flex items-center gap-2 py-4 px-6">
+                        <iconify-icon icon="solar:play-circle-linear" width="18"></iconify-icon>
+                        Learn More
+                    </a>
+                </div>
+
+                <!-- Stats Row -->
+                <div class="mt-20 grid grid-cols-3 gap-8 max-w-2xl mx-auto animate-fade-in opacity-0" style="animation-delay: 0.8s">
+                    <div class="text-center">
+                        <div class="text-3xl md:text-4xl text-white font-medium mb-2">3.8M+</div>
+                        <div class="text-[10px] uppercase tracking-widest text-zinc-500">Property Records</div>
+                    </div>
+                    <div class="text-center border-x border-white/10">
+                        <div class="text-3xl md:text-4xl text-white font-medium mb-2">Daily</div>
+                        <div class="text-[10px] uppercase tracking-widest text-zinc-500">Data Updates</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-3xl md:text-4xl text-white font-medium mb-2">99%</div>
+                        <div class="text-[10px] uppercase tracking-widest text-zinc-500">Accuracy Rate</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Scroll indicator -->
+            <div class="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
+                <iconify-icon icon="solar:alt-arrow-down-linear" width="24" class="text-zinc-600"></iconify-icon>
+            </div>
+        </div>
+    </header>
+
+    <!-- Features Section -->
+    <section id="features" class="z-20 bg-zinc-950 relative py-32">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center mb-20">
+                <span class="uppercase block text-[10px] text-zinc-500 tracking-widest mb-4">
+                    Capabilities
+                </span>
+                <h2 class="text-3xl md:text-5xl text-white font-medium tracking-tight mb-6">
+                    Powerful Search Tools
+                </h2>
+                <p class="text-zinc-400 max-w-2xl mx-auto">
+                    Access comprehensive land ownership data with multiple search methods designed for due diligence, research, and compliance.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-20">
+                <!-- Feature 1 -->
+                <div class="glass-panel p-8 rounded-3xl hover-lift group">
+                    <div class="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-6 group-hover:bg-white/10 transition-colors">
+                        <iconify-icon icon="solar:buildings-2-linear" width="24" class="text-white"></iconify-icon>
+                    </div>
+                    <h3 class="text-xl text-white font-medium mb-4">Company Search</h3>
+                    <p class="text-zinc-500 text-sm leading-relaxed mb-6">
+                        Locate all titles registered to a specific corporate entity. Search by company name with fuzzy matching for variations and typos.
+                    </p>
+                    <ul class="space-y-2 text-xs text-zinc-400">
+                        <li class="flex items-center gap-2">
+                            <iconify-icon icon="solar:check-circle-linear" class="text-emerald-500"></iconify-icon>
+                            Fuzzy name matching
+                        </li>
+                        <li class="flex items-center gap-2">
+                            <iconify-icon icon="solar:check-circle-linear" class="text-emerald-500"></iconify-icon>
+                            Company number lookup
+                        </li>
+                        <li class="flex items-center gap-2">
+                            <iconify-icon icon="solar:check-circle-linear" class="text-emerald-500"></iconify-icon>
+                            Bulk export support
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Feature 2 -->
+                <div class="glass-panel p-8 rounded-3xl hover-lift group">
+                    <div class="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-6 group-hover:bg-white/10 transition-colors">
+                        <iconify-icon icon="solar:map-point-linear" width="24" class="text-white"></iconify-icon>
+                    </div>
+                    <h3 class="text-xl text-white font-medium mb-4">Address Lookup</h3>
+                    <p class="text-zinc-500 text-sm leading-relaxed mb-6">
+                        Reverse lookup capability. Input a site address or postcode to identify the registered corporate owner of any property.
+                    </p>
+                    <ul class="space-y-2 text-xs text-zinc-400">
+                        <li class="flex items-center gap-2">
+                            <iconify-icon icon="solar:check-circle-linear" class="text-emerald-500"></iconify-icon>
+                            Postcode search
+                        </li>
+                        <li class="flex items-center gap-2">
+                            <iconify-icon icon="solar:check-circle-linear" class="text-emerald-500"></iconify-icon>
+                            Partial address matching
+                        </li>
+                        <li class="flex items-center gap-2">
+                            <iconify-icon icon="solar:check-circle-linear" class="text-emerald-500"></iconify-icon>
+                            Instant results
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Feature 3 -->
+                <div class="glass-panel p-8 rounded-3xl hover-lift group">
+                    <div class="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-6 group-hover:bg-white/10 transition-colors">
+                        <iconify-icon icon="solar:export-linear" width="24" class="text-white"></iconify-icon>
+                    </div>
+                    <h3 class="text-xl text-white font-medium mb-4">Data Export</h3>
+                    <p class="text-zinc-500 text-sm leading-relaxed mb-6">
+                        Export search results in multiple formats for further analysis, reporting, or integration with your existing systems.
+                    </p>
+                    <ul class="space-y-2 text-xs text-zinc-400">
+                        <li class="flex items-center gap-2">
+                            <iconify-icon icon="solar:check-circle-linear" class="text-emerald-500"></iconify-icon>
+                            CSV export
+                        </li>
+                        <li class="flex items-center gap-2">
+                            <iconify-icon icon="solar:check-circle-linear" class="text-emerald-500"></iconify-icon>
+                            JSON export
+                        </li>
+                        <li class="flex items-center gap-2">
+                            <iconify-icon icon="solar:check-circle-linear" class="text-emerald-500"></iconify-icon>
+                            Complete property details
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Capabilities Grid -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div class="p-6 rounded-2xl bg-zinc-900/50 border border-white/5 hover:border-white/20 transition-colors group cursor-default">
+                    <iconify-icon icon="solar:database-linear" width="24" class="text-zinc-400 group-hover:text-white transition-colors mb-4"></iconify-icon>
+                    <div class="text-lg font-medium text-white mb-2">Complete Data</div>
+                    <div class="text-[10px] uppercase tracking-widest text-zinc-500 leading-relaxed">
+                        Full CCOD dataset from HM Land Registry.
+                    </div>
+                </div>
+                <div class="p-6 rounded-2xl bg-zinc-900/50 border border-white/5 hover:border-white/20 transition-colors group cursor-default">
+                    <iconify-icon icon="solar:shield-check-linear" width="24" class="text-zinc-400 group-hover:text-white transition-colors mb-4"></iconify-icon>
+                    <div class="text-lg font-medium text-white mb-2">Verified</div>
+                    <div class="text-[10px] uppercase tracking-widest text-zinc-500 leading-relaxed">
+                        Official data from government registers.
+                    </div>
+                </div>
+                <div class="p-6 rounded-2xl bg-zinc-900/50 border border-white/5 hover:border-white/20 transition-colors group cursor-default">
+                    <iconify-icon icon="solar:bolt-linear" width="24" class="text-zinc-400 group-hover:text-white transition-colors mb-4"></iconify-icon>
+                    <div class="text-lg font-medium text-white mb-2">Fast Search</div>
+                    <div class="text-[10px] uppercase tracking-widest text-zinc-500 leading-relaxed">
+                        Instant results with intelligent matching.
+                    </div>
+                </div>
+                <div class="p-6 rounded-2xl bg-zinc-900/50 border border-white/5 hover:border-white/20 transition-colors group cursor-default">
+                    <iconify-icon icon="solar:lock-linear" width="24" class="text-zinc-400 group-hover:text-white transition-colors mb-4"></iconify-icon>
+                    <div class="text-lg font-medium text-white mb-2">Secure</div>
+                    <div class="text-[10px] uppercase tracking-widest text-zinc-500 leading-relaxed">
+                        No data stored. Search in confidence.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Data Sources Section -->
+    <section id="data-sources" class="bg-zinc-950 border-t border-white/5 py-32">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+                <div>
+                    <span class="uppercase block text-[10px] text-zinc-500 tracking-widest mb-4">
+                        Data Sources
+                    </span>
+                    <h2 class="text-3xl md:text-4xl text-white font-medium tracking-tight mb-6">
+                        Official Government Data
+                    </h2>
+                    <p class="text-zinc-400 mb-8 leading-relaxed">
+                        Our database is built from the Commercial and Corporate Ownership Data (CCOD) published by HM Land Registry. This dataset contains information about all registered freehold and leasehold property in England and Wales owned by UK and overseas companies and corporate bodies.
+                    </p>
+                    <div class="space-y-4">
+                        <div class="flex items-start gap-4 p-4 rounded-xl bg-zinc-900/50 border border-white/5">
+                            <div class="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
+                                <iconify-icon icon="solar:buildings-3-linear" width="20" class="text-zinc-400"></iconify-icon>
+                            </div>
+                            <div>
+                                <div class="text-white font-medium mb-1">HM Land Registry</div>
+                                <div class="text-xs text-zinc-500">Property ownership and title information for England and Wales</div>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-4 p-4 rounded-xl bg-zinc-900/50 border border-white/5">
+                            <div class="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
+                                <iconify-icon icon="solar:document-text-linear" width="20" class="text-zinc-400"></iconify-icon>
+                            </div>
+                            <div>
+                                <div class="text-white font-medium mb-1">CCOD Dataset</div>
+                                <div class="text-xs text-zinc-500">Commercial and Corporate Ownership Data - updated monthly</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Info Card -->
+                <div class="glass-panel p-8 rounded-3xl">
+                    <div class="flex items-center justify-between mb-8">
+                        <span class="uppercase block text-[10px] text-zinc-500 tracking-widest">
+                            Registry Status
+                        </span>
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <span class="text-[10px] text-emerald-500 font-medium uppercase tracking-wide">Live</span>
+                        </div>
+                    </div>
+                    
+                    <h3 class="text-2xl text-white font-medium mb-4">
+                        England & Wales Coverage
+                    </h3>
+                    <p class="text-zinc-400 text-sm leading-relaxed mb-8">
+                        Complete coverage of corporate-owned land and property. Search across all registered titles to identify corporate owners and their property portfolios.
+                    </p>
+                    
+                    <div class="grid grid-cols-2 gap-4 mb-8">
+                        <div class="bg-white/5 rounded-xl p-4 border border-white/5">
+                            <div class="text-3xl text-white font-medium mb-1">3.8M+</div>
+                            <div class="text-[10px] text-zinc-500 uppercase tracking-wider">Property Records</div>
+                        </div>
+                        <div class="bg-white/5 rounded-xl p-4 border border-white/5">
+                            <div class="text-3xl text-white font-medium mb-1">Monthly</div>
+                            <div class="text-[10px] text-zinc-500 uppercase tracking-wider">Data Refresh</div>
+                        </div>
+                    </div>
+
+                    <a href="/search" class="w-full bg-white text-black hover:bg-zinc-200 transition-all rounded-xl px-6 py-4 flex items-center justify-center gap-2 text-sm uppercase tracking-widest font-semibold">
+                        <iconify-icon icon="solar:magnifer-linear" width="16"></iconify-icon>
+                        Start Searching
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Use Cases Section -->
+    <section class="bg-zinc-950 border-t border-white/5 py-32">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center mb-16">
+                <span class="uppercase block text-[10px] text-zinc-500 tracking-widest mb-4">
+                    Use Cases
+                </span>
+                <h2 class="text-3xl md:text-4xl text-white font-medium tracking-tight mb-6">
+                    Who Uses This Data?
+                </h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="text-center p-6">
+                    <div class="w-16 h-16 rounded-2xl bg-zinc-900 border border-white/10 flex items-center justify-center mx-auto mb-4">
+                        <iconify-icon icon="solar:scale-linear" width="28" class="text-zinc-400"></iconify-icon>
+                    </div>
+                    <h3 class="text-white font-medium mb-2">Legal Firms</h3>
+                    <p class="text-zinc-500 text-xs">Due diligence and property conveyancing research</p>
+                </div>
+                <div class="text-center p-6">
+                    <div class="w-16 h-16 rounded-2xl bg-zinc-900 border border-white/10 flex items-center justify-center mx-auto mb-4">
+                        <iconify-icon icon="solar:graph-up-linear" width="28" class="text-zinc-400"></iconify-icon>
+                    </div>
+                    <h3 class="text-white font-medium mb-2">Investors</h3>
+                    <p class="text-zinc-500 text-xs">Portfolio analysis and market research</p>
+                </div>
+                <div class="text-center p-6">
+                    <div class="w-16 h-16 rounded-2xl bg-zinc-900 border border-white/10 flex items-center justify-center mx-auto mb-4">
+                        <iconify-icon icon="solar:newspaper-linear" width="28" class="text-zinc-400"></iconify-icon>
+                    </div>
+                    <h3 class="text-white font-medium mb-2">Journalists</h3>
+                    <p class="text-zinc-500 text-xs">Investigative research and transparency</p>
+                </div>
+                <div class="text-center p-6">
+                    <div class="w-16 h-16 rounded-2xl bg-zinc-900 border border-white/10 flex items-center justify-center mx-auto mb-4">
+                        <iconify-icon icon="solar:home-linear" width="28" class="text-zinc-400"></iconify-icon>
+                    </div>
+                    <h3 class="text-white font-medium mb-2">Property Pros</h3>
+                    <p class="text-zinc-500 text-xs">Ownership verification and lead generation</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="bg-zinc-950 border-t border-white/5 py-32">
+        <div class="max-w-3xl mx-auto px-6 text-center">
+            <h2 class="text-3xl md:text-5xl text-white font-medium tracking-tight mb-6">
+                Ready to Search?
+            </h2>
+            <p class="text-zinc-400 text-lg mb-10 max-w-xl mx-auto">
+                Start exploring corporate land ownership data. Free to search, instant results.
+            </p>
+            <a href="/search" class="inline-flex items-center gap-3 bg-white text-black rounded-full px-10 py-5 hover:bg-zinc-200 transition-all shadow-[0_0_40px_rgba(255,255,255,0.15)] hover:shadow-[0_0_60px_rgba(255,255,255,0.25)] group">
+                <span class="text-sm tracking-wider uppercase font-semibold">
+                    Open Registry Search
+                </span>
+                <iconify-icon icon="solar:arrow-right-linear" width="18" class="group-hover:translate-x-1 transition-transform" stroke-width="2.5"></iconify-icon>
+            </a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="text-sm font-light text-zinc-500 bg-zinc-950 border-white/5 border-t pt-16 pb-16">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-8 mb-16">
+                <!-- Brand -->
+                <div class="col-span-1 sm:col-span-2 lg:col-span-1">
+                    <h3 class="text-lg text-white tracking-tight mb-6 font-medium flex items-center gap-2">
+                        <iconify-icon icon="solar:buildings-2-linear"></iconify-icon>
+                        LandRegistry.io
+                    </h3>
+                    <p class="leading-relaxed mb-6 text-xs text-zinc-500">
+                        Free corporate land ownership search for England and Wales.
+                    </p>
+                </div>
+
+                <!-- Platform -->
+                <div>
+                    <h4 class="text-white uppercase text-[10px] tracking-widest mb-6">
+                        Platform
+                    </h4>
+                    <ul class="space-y-3 text-xs tracking-wide">
+                        <li><a href="/search" class="hover:text-white transition-colors">Search Database</a></li>
+                        <li><a href="#features" class="hover:text-white transition-colors">Features</a></li>
+                        <li><a href="#data-sources" class="hover:text-white transition-colors">Data Sources</a></li>
+                    </ul>
+                </div>
+
+                <!-- Data -->
+                <div>
+                    <h4 class="text-white uppercase text-[10px] tracking-widest mb-6">
+                        Data Sources
+                    </h4>
+                    <ul class="space-y-3 text-xs tracking-wide">
+                        <li><a href="https://www.gov.uk/government/organisations/land-registry" target="_blank" class="hover:text-white transition-colors">HM Land Registry</a></li>
+                        <li><a href="https://use-land-property-data.service.gov.uk/" target="_blank" class="hover:text-white transition-colors">CCOD Dataset</a></li>
+                    </ul>
+                </div>
+
+                <!-- Legal -->
+                <div>
+                    <h4 class="text-white uppercase text-[10px] tracking-widest mb-6">
+                        Information
+                    </h4>
+                    <ul class="space-y-3 text-xs tracking-wide">
+                        <li><a href="#" class="hover:text-white transition-colors">About</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Privacy</a></li>
+                        <li><a href="#" class="hover:text-white transition-colors">Terms</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="border-t border-white/5 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] uppercase tracking-widest">
+                <p>
+                    © 2026 LandRegistry.io. Data sourced from HM Land Registry under Open Government Licence.
+                </p>
+                <div class="flex gap-4">
+                    <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Online</span>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Particles.js -->
+    <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            particlesJS('particles-js', {
+                particles: {
+                    number: { value: 80, density: { enable: true, value_area: 800 } },
+                    color: { value: "#ffffff" },
+                    shape: { type: "circle" },
+                    opacity: { value: 0.5, random: false },
+                    size: { value: 3, random: true },
+                    line_linked: { enable: true, distance: 150, color: "#ffffff", opacity: 0.4, width: 1 },
+                    move: { enable: true, speed: 6, direction: "none", random: false, straight: false, out_mode: "out", bounce: false }
+                },
+                interactivity: {
+                    detect_on: "canvas",
+                    events: { onhover: { enable: true, mode: "repulse" }, onclick: { enable: true, mode: "push" }, resize: true },
+                    modes: { grab: { distance: 400, line_linked: { opacity: 1 } }, bubble: { distance: 400, size: 40, duration: 2, opacity: 8, speed: 3 }, repulse: { distance: 200, duration: 0.4 }, push: { particles_nb: 4 }, remove: { particles_nb: 2 } }
+                },
+                retina_detect: true
+            });
+        });
+    </script>
+</body>
+</html>

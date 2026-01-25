@@ -1,0 +1,25 @@
+# Large data files - not needed on Vercel (using Neon PostgreSQL)
+*.db
+*.csv
+property_data.db
+CCOD_FULL_2025_10.csv
+
+# Local environment files
+env.local
+.env
+.env.local
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Scripts (migration tools not needed in production)
+scripts/
+
+# Vercel folder
+.vercel/
+
+# Other
+promo-video/
+*.mp4

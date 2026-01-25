@@ -1,0 +1,24 @@
+{
+  "name": "promo-video",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "remotion studio",
+    "build": "remotion render LandRegistryPromo out/promo.mp4",
+    "preview": "remotion preview"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "LandRegistry.io Promo Video",
+  "dependencies": {
+    "@remotion/cli": "^4.0.409",
+    "@remotion/media-utils": "^4.0.409",
+    "@remotion/player": "^4.0.409",
+    "@types/react": "^19.2.9",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "remotion": "^4.0.409",
+    "typescript": "^5.9.3"
+  }
+}

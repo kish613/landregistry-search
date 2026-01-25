@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Corporate Land Registry - Search land ownership by company name, number, or address.">
+    <meta name="robots" content="index, follow">
+    <title>Search | Corporate Land Registry</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Geist', system-ui, sans-serif;
+            background-color: #09090b;
+        }
+        h1, h2, h3, h4 {
+            font-family: 'Geist', system-ui, sans-serif;
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #18181b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #27272a;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3f3f46;
+        }
+        /* Glassmorphism */
+        .glass-panel {
+            background: rgba(24, 24, 27, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
+        .glass-dropdown {
+            background: rgba(24, 24, 27, 0.95);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        }
+        /* Text glow */
+        .text-glow {
+            text-shadow: 0 0 40px rgba(255,255,255,0.1);
+        }
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes dropdownFadeIn {
+            from { opacity: 0; transform: translate(-50%, -8px) scale(0.98); }
+            to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+        }
+        .group:hover .group-hover\:block {
+            display: block;
+            animation: dropdownFadeIn 0.2s ease-out;
+        }
+        /* Input styles */
+        input {
+            background: transparent;
+            outline: none;
+            color: white;
+        }
+        input::placeholder {
+            color: #71717a;
+        }
+        /* Results card hover */
+        .result-card {
+            transition: all 0.2s ease;
+        }
+        .result-card:hover {
+            background: rgba(255,255,255,0.05);
+            border-color: rgba(255,255,255,0.15);
+        }
+        
+        /* ========== NEW LOGO STYLES ========== */
+        /* Logo Container */
+        .logo-link {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: opacity 0.3s ease;
+        }
+        .logo-link:hover {
+            opacity: 0.9;
+        }
+        
+        .logo-svg-container {
+            width: 44px;
+            height: 44px;
+            cursor: pointer;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .logo-link:hover .logo-svg-container {
+            transform: scale(1.05);
+        }
+        
+        .logo-svg-container svg {
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+        }
+        
+        /* Rim Light Animation */
+        .rim-light {
+            stroke-dasharray: 500;
+            stroke-dashoffset: 500;
+            opacity: 0.7;
+            transition: stroke-dashoffset 1.5s ease-in-out;
+        }
+        .logo-link:hover .rim-light {
+            stroke-dashoffset: 0;
+        }
+        
+        /* Gold Bevel Hover */
+        .gold-bevel {
+            transition: filter 0.3s ease;
+        }
+        .logo-link:hover .gold-bevel {
+            filter: brightness(1.25);
+        }
+        
+        /* Security Pattern Reveal */
+        .security-pattern {
+            opacity: 0.15;
+            transition: opacity 0.5s ease;
+        }
+        .logo-link:hover .security-pattern {
+            opacity: 0.35;
+        }
+        
+        /* Logo Text Styles */
+        .logo-text {
+            font-family: 'Geist', system-ui, sans-serif;
+            font-weight: 700;
+            font-size: 1rem;
+            color: #fafafa;
+            letter-spacing: -0.02em;
+        }
+        .logo-text .domain {
+            font-weight: 300;
+            color: #2a7a85;
+        }
+        
+        /* Page Load Animation for Logo */
+        @keyframes logoFadeIn {
+            0% { opacity: 0; transform: scale(0.8) translateY(-10px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        @keyframes logoShimmer {
+            0% { stroke-dashoffset: 500; }
+            100% { stroke-dashoffset: 0; }
+        }
+        @keyframes logoPulse {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.15); }
+        }
+        
+        .logo-svg-container {
+            animation: logoFadeIn 0.8s ease-out forwards;
+        }
+        .logo-svg-container .rim-light {
+            animation: logoShimmer 2s ease-in-out 0.5s forwards;
+        }
+        .logo-svg-container .gold-bevel {
+            animation: logoPulse 2s ease-in-out 1s;
+        }
+        /* ========== END LOGO STYLES ========== */
+    </style>
+</head>
+<body class="antialiased selection:bg-white/10 selection:text-white overflow-x-hidden text-zinc-400">
+    <!-- Navigation -->
+    <nav class="fixed z-[100] transition-all duration-300 bg-zinc-900/80 w-full border-white/5 border-b top-0 backdrop-blur-xl">
+        <div class="flex h-20 max-w-7xl mx-auto px-6 items-center justify-between">
+            <div class="flex gap-12 items-center">
+                <a href="/" class="logo-link">
+                    <div class="logo-svg-container">
+                        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <!-- Shield Gradient -->
+                                <linearGradient id="shieldGloss" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#0f2c52;stop-opacity:1" />
+                                    <stop offset="50%" style="stop-color:#1a4d6e;stop-opacity:1" />
+                                    <stop offset="52%" style="stop-color:#2a7a85;stop-opacity:1" />
+                                    <stop offset="100%" style="stop-color:#0f2c52;stop-opacity:1" />
+                                </linearGradient>
+                                <!-- Gold Face Gradient -->
+                                <linearGradient id="goldFace" x1="0%" y1="0%" x2="0%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#fce7f3;stop-opacity:1" />
+                                    <stop offset="20%" style="stop-color:#eab308;stop-opacity:1" />
+                                    <stop offset="100%" style="stop-color:#a16207;stop-opacity:1" />
+                                </linearGradient>
+                                <!-- Gold Edge Gradient -->
+                                <linearGradient id="goldEdge" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#854d0e;stop-opacity:1" />
+                                    <stop offset="100%" style="stop-color:#ca8a04;stop-opacity:1" />
+                                </linearGradient>
+                                <!-- Security Pattern -->
+                                <pattern id="secGrid" x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse">
+                                    <path d="M 10 0 L 0 0 0 10" fill="none" stroke="white" stroke-width="0.5" opacity="0.5"/>
+                                </pattern>
+                                <!-- Deep Shadow -->
+                                <filter id="deepShadow" x="-50%" y="-50%" width="200%" height="200%">
+                                    <feGaussianBlur in="SourceAlpha" stdDeviation="3" />
+                                    <feOffset dx="2" dy="4" result="offsetblur" />
+                                    <feComponentTransfer>
+                                        <feFuncA type="linear" slope="0.3" />
+                                    </feComponentTransfer>
+                                    <feMerge>
+                                        <feMergeNode />
+                                        <feMergeNode in="SourceGraphic" />
+                                    </feMerge>
+                                </filter>
+                            </defs>
+                            <g transform="translate(5, 5)">
+                                <!-- Shield Base -->
+                                <path class="shield-base" fill="url(#shieldGloss)" filter="url(#deepShadow)" d="
+                                    M 95,185
+                                    C 155,185 180,145 180,105
+                                    L 180,55
+                                    L 145,55
+                                    L 115,25   
+                                    L 55,25
+                                    L 20,60
+                                    L 20,105
+                                    C 20,145 45,185 95,185
+                                    Z
+                                "/>
+                                <!-- Rim Light Stroke -->
+                                <path class="rim-light" fill="none" stroke="#4fd1c5" stroke-width="2" d="
+                                    M 95,185
+                                    C 155,185 180,145 180,105
+                                    L 180,55
+                                    L 145,55
+                                    L 115,25   
+                                    L 55,25
+                                    L 20,60
+                                    L 20,105
+                                    C 20,145 45,185 95,185
+                                    Z
+                                "/>
+                                <!-- Document Pattern -->
+                                <path class="security-pattern" fill="url(#secGrid)" d="
+                                    M 115,25
+                                    L 145,55
+                                    L 145,105
+                                    C 145,145 125,175 95,175
+                                    C 55,175 30,145 30,105
+                                    L 30,60
+                                    L 55,25
+                                    Z
+                                " style="mix-blend-mode: overlay;"/>
+                                <!-- Top Fold -->
+                                <path fill="#0f3d5c" d="
+                                    M 180,55
+                                    L 145,55
+                                    L 145,25
+                                    C 145,25 180,25 180,55
+                                    Z
+                                "/>
+                                <path fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1" d="M 145,25 L 180,55" />
+                                <!-- Document Lines -->
+                                <g opacity="0.4">
+                                    <rect x="50" y="75" width="40" height="4" rx="2" fill="white" />
+                                    <rect x="50" y="87" width="60" height="4" rx="2" fill="white" />
+                                    <rect x="50" y="99" width="55" height="4" rx="2" fill="white" />
+                                    <rect x="50" y="111" width="35" height="4" rx="2" fill="white" />
+                                </g>
+                                <!-- Gold Checkmark -->
+                                <g class="checkmark-group" filter="url(#deepShadow)">
+                                    <path class="gold-edge" fill="url(#goldEdge)" d="
+                                        M 75,120
+                                        L 100,145
+                                        L 155,80
+                                        L 144,70
+                                        L 100,122
+                                        L 86,108
+                                        L 75,120
+                                        Z
+                                    "/>
+                                    <path class="gold-face gold-bevel" fill="url(#goldFace)" d="
+                                        M 77,118
+                                        L 100,141
+                                        L 151,80
+                                        L 142,72
+                                        L 100,122
+                                        L 86,108
+                                        L 77,118
+                                        Z
+                                    " transform="translate(0, -2)"/>
+                                    <path fill="white" opacity="0.4" d="M 100,141 L 105,135 L 100,122 Z" style="mix-blend-mode: soft-light;"/>
+                                </g>
+                            </g>
+                        </svg>
+                    </div>
+                    <span class="logo-text">landregistry<span class="domain">.company</span></span>
+                </a>
+
+                <div class="hidden md:flex gap-8 uppercase text-[10px] text-zinc-400 tracking-widest items-center font-medium">
+                    <a href="/search" class="text-white transition-colors duration-300">
+                        Registry Search
+                    </a>
+                    <a href="/#features" class="hover:text-white transition-colors duration-300">
+                        Features
+                    </a>
+                    <a href="/#data-sources" class="hover:text-white transition-colors duration-300">
+                        Data Sources
+                    </a>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <a href="/" class="text-xs font-medium text-zinc-400 hover:text-white transition-colors">Back to Home</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <header class="overflow-hidden bg-zinc-950 w-full h-[50vh] min-h-[400px] relative border-b border-white/5">
+        <!-- Background Visuals -->
+        <div class="z-0 absolute top-0 right-0 bottom-0 left-0">
+            <div class="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_at_center,black_40%,transparent_100%)]"></div>
+            <div class="absolute bottom-0 left-0 w-full h-64 bg-gradient-to-t from-zinc-950 to-transparent pointer-events-none"></div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex flex-col z-10 h-full max-w-7xl mx-auto px-6 pt-24 relative justify-center items-center text-center">
+            <div class="max-w-3xl">
+                <div class="flex items-center justify-center gap-3 mb-6" style="animation: fadeIn 1s ease-out">
+                    <span class="uppercase text-[10px] text-zinc-400 tracking-[0.3em] border border-white/10 px-3 py-1 rounded-full bg-white/5">
+                        Official Data Source
+                    </span>
+                </div>
+
+                <h1 class="md:text-5xl lg:text-6xl leading-[0.95] text-glow text-4xl text-white tracking-tighter mb-6 font-medium">
+                    <span class="block">Registry Search</span>
+                </h1>
+
+                <p class="md:text-lg leading-relaxed text-base font-light text-zinc-400 max-w-xl mx-auto">
+                    Search corporate land ownership by company name, registration number, or property address.
+                </p>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <section class="z-20 bg-zinc-950 relative pb-24">
+        <div class="max-w-4xl mx-auto px-6 -mt-8">
+            <!-- Search Panel -->
+            <div class="glass-panel rounded-2xl p-8 mb-8">
+                <form id="searchForm">
+                    <!-- Search Type Selector -->
+                    <div class="mb-6">
+                        <label class="block text-[10px] uppercase tracking-widest text-zinc-500 mb-3">Search Type</label>
+                        <div class="flex flex-wrap gap-2">
+                            <button type="button" class="search-type-btn active px-4 py-2 rounded-lg text-xs font-medium transition-all" data-type="name">
+                                <iconify-icon icon="solar:buildings-2-linear" class="mr-1.5"></iconify-icon>
+                                Company Name
+                            </button>
+                            <button type="button" class="search-type-btn px-4 py-2 rounded-lg text-xs font-medium transition-all" data-type="number">
+                                <iconify-icon icon="solar:hashtag-linear" class="mr-1.5"></iconify-icon>
+                                Company Number
+                            </button>
+                            <button type="button" class="search-type-btn px-4 py-2 rounded-lg text-xs font-medium transition-all" data-type="director">
+                                <iconify-icon icon="solar:user-bold" class="mr-1.5"></iconify-icon>
+                                Director Name
+                            </button>
+                            <button type="button" class="search-type-btn px-4 py-2 rounded-lg text-xs font-medium transition-all" data-type="address">
+                                <iconify-icon icon="solar:map-point-linear" class="mr-1.5"></iconify-icon>
+                                Address
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Search Input -->
+                    <div class="mb-6">
+                        <label class="block text-[10px] uppercase tracking-widest text-zinc-500 mb-3" id="searchLabel">Company Name</label>
+                        <div class="relative">
+                            <input 
+                                type="text" 
+                                id="searchInput" 
+                                class="w-full bg-zinc-900/50 border border-white/10 rounded-xl px-5 py-4 text-white placeholder-zinc-600 focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all"
+                                placeholder="e.g. Acme Holdings Ltd..."
+                                autocomplete="off"
+                                required
+                            >
+                            <div class="absolute right-3 top-1/2 -translate-y-1/2">
+                                <iconify-icon icon="solar:magnifer-linear" width="20" class="text-zinc-600"></iconify-icon>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" id="searchBtn" class="w-full bg-white text-black rounded-xl px-6 py-4 flex items-center justify-center gap-2 hover:bg-zinc-200 transition-all font-semibold text-sm uppercase tracking-wider">
+                        <span id="btnText">Search Registry</span>
+                        <iconify-icon id="btnIcon" icon="solar:magnifer-linear" width="16"></iconify-icon>
+                        <iconify-icon id="btnSpinner" icon="svg-spinners:ring-resize" width="16" class="hidden"></iconify-icon>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Results Section -->
+            <div id="resultsSection" class="hidden">
+                <!-- Results Header -->
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                    <div>
+                        <h2 class="text-xl text-white font-medium" id="resultsTitle">Search Results</h2>
+                        <p class="text-zinc-500 text-sm" id="resultsCount"></p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button id="exportCsvBtn" class="px-4 py-2 rounded-lg bg-zinc-900 border border-white/10 text-zinc-400 hover:text-white hover:border-white/20 transition-all text-xs uppercase tracking-wider font-medium flex items-center gap-2">
+                            <iconify-icon icon="solar:document-text-linear" width="14"></iconify-icon>
+                            CSV
+                        </button>
+                        <button id="exportJsonBtn" class="px-4 py-2 rounded-lg bg-zinc-900 border border-white/10 text-zinc-400 hover:text-white hover:border-white/20 transition-all text-xs uppercase tracking-wider font-medium flex items-center gap-2">
+                            <iconify-icon icon="solar:code-linear" width="14"></iconify-icon>
+                            JSON
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Results List -->
+                <div id="resultsList" class="space-y-4"></div>
+            </div>
+
+            <!-- Directors Found Section (for director searches) -->
+            <div id="directorsSection" class="hidden mb-8">
+                <div class="glass-panel rounded-xl p-6">
+                    <h3 class="text-white font-medium mb-4 flex items-center gap-2">
+                        <iconify-icon icon="solar:user-check-rounded-linear" width="18" class="text-emerald-500"></iconify-icon>
+                        <span id="directorsTitle">Directors & Companies Found</span>
+                    </h3>
+                    <div id="directorsList" class="space-y-3"></div>
+                </div>
+            </div>
+
+            <!-- No Results Section -->
+            <div id="noResults" class="hidden text-center py-16">
+                <iconify-icon icon="solar:document-text-linear" width="48" class="text-zinc-700 mb-4"></iconify-icon>
+                <h3 class="text-white text-lg font-medium mb-2">No Results Found</h3>
+                <p class="text-zinc-500 text-sm" id="noResultsText">No properties found matching your search criteria.</p>
+            </div>
+
+            <!-- Suggestions Section -->
+            <div id="suggestionsSection" class="hidden mt-8">
+                <div class="glass-panel rounded-xl p-6">
+                    <h3 class="text-white font-medium mb-4 flex items-center gap-2">
+                        <iconify-icon icon="solar:lightbulb-linear" width="18" class="text-amber-500"></iconify-icon>
+                        Did you mean:
+                    </h3>
+                    <div id="suggestionsList" class="flex flex-wrap gap-2"></div>
+                </div>
+            </div>
+
+            <!-- Error Section -->
+            <div id="errorMessage" class="hidden">
+                <div class="bg-red-500/10 border border-red-500/20 rounded-xl p-6 text-center">
+                    <iconify-icon icon="solar:danger-circle-linear" width="32" class="text-red-500 mb-2"></iconify-icon>
+                    <p class="text-red-400" id="errorText"></p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="text-sm font-light text-zinc-500 bg-zinc-950 border-white/5 border-t pt-12 pb-12">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] uppercase tracking-widest">
+                <div class="flex items-center gap-2">
+                    <iconify-icon icon="solar:buildings-2-linear"></iconify-icon>
+                    <span>LandRegistry.io</span>
+                </div>
+                <p>
+                    © 2026 Data sourced from HM Land Registry under Open Government Licence.
+                </p>
+                <div class="flex gap-4">
+                    <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Online</span>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // State
+        let currentSearchType = 'name';
+        let lastSearchType = 'name';
+        let lastSearchValue = '';
+
+        // DOM Elements
+        const searchForm = document.getElementById('searchForm');
+        const searchInput = document.getElementById('searchInput');
+        const searchLabel = document.getElementById('searchLabel');
+        const searchBtn = document.getElementById('searchBtn');
+        const btnText = document.getElementById('btnText');
+        const btnIcon = document.getElementById('btnIcon');
+        const btnSpinner = document.getElementById('btnSpinner');
+        const resultsSection = document.getElementById('resultsSection');
+        const resultsList = document.getElementById('resultsList');
+        const resultsTitle = document.getElementById('resultsTitle');
+        const resultsCount = document.getElementById('resultsCount');
+        const noResults = document.getElementById('noResults');
+        const noResultsText = document.getElementById('noResultsText');
+        const suggestionsSection = document.getElementById('suggestionsSection');
+        const suggestionsList = document.getElementById('suggestionsList');
+        const directorsSection = document.getElementById('directorsSection');
+        const directorsList = document.getElementById('directorsList');
+        const directorsTitle = document.getElementById('directorsTitle');
+        const errorMessage = document.getElementById('errorMessage');
+        const errorText = document.getElementById('errorText');
+        const exportCsvBtn = document.getElementById('exportCsvBtn');
+        const exportJsonBtn = document.getElementById('exportJsonBtn');
+        const searchTypeBtns = document.querySelectorAll('.search-type-btn');
+
+        // Search type button styles
+        const updateSearchTypeBtnStyles = () => {
+            searchTypeBtns.forEach(btn => {
+                if (btn.dataset.type === currentSearchType) {
+                    btn.classList.add('bg-white', 'text-black');
+                    btn.classList.remove('bg-zinc-900', 'text-zinc-400', 'border', 'border-white/10', 'hover:text-white');
+                } else {
+                    btn.classList.remove('bg-white', 'text-black');
+                    btn.classList.add('bg-zinc-900', 'text-zinc-400', 'border', 'border-white/10', 'hover:text-white');
+                }
+            });
+        };
+
+        // Initialize button styles
+        updateSearchTypeBtnStyles();
+
+        // Search type selection
+        searchTypeBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                currentSearchType = btn.dataset.type;
+                updateSearchTypeBtnStyles();
+                
+                // Update label and placeholder
+                const configs = {
+                    name: { label: 'Company Name', placeholder: 'e.g. Acme Holdings Ltd...' },
+                    number: { label: 'Company Number', placeholder: 'e.g. 12345678...' },
+                    director: { label: 'Director Name', placeholder: 'e.g. John Smith...' },
+                    address: { label: 'Address or Postcode', placeholder: 'e.g. 10 Downing Street or SW1A 2AA...' }
+                };
+                
+                searchLabel.textContent = configs[currentSearchType].label;
+                searchInput.placeholder = configs[currentSearchType].placeholder;
+                searchInput.focus();
+            });
+        });
+
+        // Form submission
+        searchForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const searchValue = searchInput.value.trim();
+            
+            if (!searchValue) return;
+            
+            lastSearchType = currentSearchType;
+            lastSearchValue = searchValue;
+            
+            await executeSearch(currentSearchType, searchValue);
+        });
+
+        // Execute search
+        async function executeSearch(searchType, searchValue) {
+            // Show loading state
+            btnText.textContent = searchType === 'director' ? 'Searching Companies House...' : 'Searching...';
+            btnIcon.classList.add('hidden');
+            btnSpinner.classList.remove('hidden');
+            searchBtn.disabled = true;
+            
+            // Hide previous results
+            resultsSection.classList.add('hidden');
+            noResults.classList.add('hidden');
+            suggestionsSection.classList.add('hidden');
+            directorsSection.classList.add('hidden');
+            errorMessage.classList.add('hidden');
+
+            try {
+                const response = await fetch('/api/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        search_type: searchType,
+                        search_value: searchValue
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // For director searches, display found directors/companies first
+                    if (searchType === 'director' && data.directors_found && data.directors_found.length > 0) {
+                        displayDirectors(data.directors_found, searchValue);
+                    }
+                    
+                    if (data.results && data.results.length > 0) {
+                        displayResults(data.results, searchType, searchValue);
+                    } else if (data.suggestions && data.suggestions.length > 0) {
+                        displaySuggestions(data.suggestions);
+                        noResultsText.textContent = searchType === 'director' 
+                            ? 'No properties found for companies linked to matching directors. Try these company names instead:'
+                            : 'No properties found matching your search criteria.';
+                        noResults.classList.remove('hidden');
+                    } else {
+                        noResultsText.textContent = searchType === 'director'
+                            ? 'No directors found matching this name, or their companies do not own properties in our database.'
+                            : 'No properties found matching your search criteria.';
+                        noResults.classList.remove('hidden');
+                    }
+                } else {
+                    showError(data.error || 'An error occurred');
+                    // Still show suggestions if available
+                    if (data.suggestions && data.suggestions.length > 0) {
+                        displaySuggestions(data.suggestions);
+                    }
+                }
+            } catch (error) {
+                showError('Failed to connect to the server. Please try again.');
+            } finally {
+                // Reset button state
+                btnText.textContent = 'Search Registry';
+                btnIcon.classList.remove('hidden');
+                btnSpinner.classList.add('hidden');
+                searchBtn.disabled = false;
+            }
+        }
+
+        // Display directors found (for director searches)
+        function displayDirectors(directors, searchValue) {
+            directorsSection.classList.remove('hidden');
+            
+            // Group directors by unique director-company pairs
+            const uniqueCompanies = new Map();
+            directors.forEach(d => {
+                const key = `${d.company_number}`;
+                if (!uniqueCompanies.has(key)) {
+                    uniqueCompanies.set(key, d);
+                }
+            });
+            
+            const uniqueList = Array.from(uniqueCompanies.values());
+            directorsTitle.textContent = `Found ${uniqueList.length} ${uniqueList.length === 1 ? 'company' : 'companies'} linked to "${searchValue}"`;
+            
+            directorsList.innerHTML = uniqueList.map((d, index) => `
+                <div class="flex flex-col sm:flex-row sm:items-center gap-2 p-3 rounded-lg bg-zinc-900/50 border border-white/5" style="animation: fadeIn 0.2s ease-out ${index * 0.05}s both">
+                    <div class="flex items-center gap-3 flex-grow">
+                        <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                            <iconify-icon icon="solar:user-bold" width="14" class="text-emerald-400"></iconify-icon>
+                        </div>
+                        <div>
+                            <div class="text-sm text-white font-medium">${escapeHtml(d.director_name || 'Unknown Director')}</div>
+                            <div class="text-xs text-zinc-500">${escapeHtml(d.officer_role || 'Director')}${d.appointed_on ? ' since ' + escapeHtml(d.appointed_on) : ''}${d.resigned_on ? ' (resigned ' + escapeHtml(d.resigned_on) + ')' : ''}</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 sm:text-right">
+                        <iconify-icon icon="solar:arrow-right-linear" width="14" class="text-zinc-600 hidden sm:block"></iconify-icon>
+                        <div>
+                            <div class="text-sm text-zinc-300">${escapeHtml(d.company_name || 'Unknown Company')}</div>
+                            <div class="text-xs text-zinc-500 font-mono">Co. ${escapeHtml(d.company_number || 'N/A')}${d.company_status ? ' • ' + escapeHtml(d.company_status) : ''}</div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Display results
+        function displayResults(results, searchType, searchValue) {
+            resultsSection.classList.remove('hidden');
+            
+            // Update header
+            const typeLabels = { name: 'Company', number: 'Company Number', director: 'Director', address: 'Address' };
+            resultsTitle.textContent = searchType === 'director' 
+                ? `Properties owned by companies linked to "${searchValue}"`
+                : `Properties for "${searchValue}"`;
+            resultsCount.textContent = `${results.length} ${results.length === 1 ? 'property' : 'properties'} found`;
+
+            // Build results HTML
+            resultsList.innerHTML = results.map((prop, index) => `
+                <div class="result-card glass-panel rounded-xl p-6 border border-white/5" style="animation: fadeIn 0.3s ease-out ${index * 0.05}s both">
+                    <div class="flex flex-col lg:flex-row lg:items-start gap-4">
+                        <div class="flex-grow">
+                            <div class="flex items-start gap-3 mb-3">
+                                <div class="w-10 h-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">
+                                    <iconify-icon icon="solar:home-2-linear" width="18" class="text-zinc-400"></iconify-icon>
+                                </div>
+                                <div>
+                                    <h3 class="text-white font-medium">${escapeHtml(prop.property_address || 'Address not available')}</h3>
+                                    <p class="text-zinc-500 text-xs">${escapeHtml(prop.postcode || '')} ${prop.district ? '• ' + escapeHtml(prop.district) : ''}</p>
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                                <div>
+                                    <div class="text-[10px] uppercase tracking-widest text-zinc-600 mb-1">Title Number</div>
+                                    <div class="text-sm text-zinc-300 font-mono">${escapeHtml(prop.title_number || 'N/A')}</div>
+                                </div>
+                                <div>
+                                    <div class="text-[10px] uppercase tracking-widest text-zinc-600 mb-1">Tenure</div>
+                                    <div class="text-sm text-zinc-300">${escapeHtml(prop.tenure || 'N/A')}</div>
+                                </div>
+                                <div>
+                                    <div class="text-[10px] uppercase tracking-widest text-zinc-600 mb-1">Region</div>
+                                    <div class="text-sm text-zinc-300">${escapeHtml(prop.region || prop.county || 'N/A')}</div>
+                                </div>
+                                <div>
+                                    <div class="text-[10px] uppercase tracking-widest text-zinc-600 mb-1">Price Paid</div>
+                                    <div class="text-sm text-zinc-300">${prop.price_paid ? '£' + Number(prop.price_paid).toLocaleString() : 'N/A'}</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="lg:text-right lg:min-w-[200px] pt-4 lg:pt-0 border-t lg:border-t-0 lg:border-l border-white/5 lg:pl-4">
+                            <div class="text-[10px] uppercase tracking-widest text-zinc-600 mb-1">Proprietor</div>
+                            <div class="text-sm text-white font-medium mb-1">${escapeHtml(prop.proprietor_name || 'N/A')}</div>
+                            ${prop.company_registration_no ? `<div class="text-xs text-zinc-500 font-mono">Co. ${escapeHtml(prop.company_registration_no)}</div>` : ''}
+                            ${prop.date_proprietor_added ? `<div class="text-xs text-zinc-600 mt-2">Added: ${escapeHtml(prop.date_proprietor_added)}</div>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Display suggestions
+        function displaySuggestions(suggestions) {
+            suggestionsSection.classList.remove('hidden');
+            suggestionsList.innerHTML = suggestions.map(s => `
+                <button class="suggestion-btn px-4 py-2 rounded-lg bg-zinc-900 border border-white/10 text-zinc-300 hover:text-white hover:bg-zinc-800 hover:border-white/20 transition-all text-sm">
+                    ${escapeHtml(s.name)}
+                    <span class="text-zinc-600 text-xs ml-1">(${s.similarity}%)</span>
+                </button>
+            `).join('');
+
+            // Add click handlers to suggestions
+            document.querySelectorAll('.suggestion-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const name = btn.textContent.split('(')[0].trim();
+                    searchInput.value = name;
+                    currentSearchType = 'name';
+                    updateSearchTypeBtnStyles();
+                    executeSearch('name', name);
+                });
+            });
+        }
+
+        // Show error
+        function showError(message) {
+            errorMessage.classList.remove('hidden');
+            errorText.textContent = message;
+        }
+
+        // Export handlers
+        exportCsvBtn.addEventListener('click', () => exportResults('csv'));
+        exportJsonBtn.addEventListener('click', () => exportResults('json'));
+
+        async function exportResults(format) {
+            // Check if a search has been performed
+            if (!lastSearchValue) {
+                showError('Please perform a search first before exporting.');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/export/${format}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        search_type: lastSearchType,
+                        search_value: lastSearchValue
+                    })
+                });
+
+                // Check if response is successful
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    showError(errorData.error || 'Failed to export data.');
+                    return;
+                }
+
+                if (format === 'csv') {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `properties_${lastSearchType}_${lastSearchValue.replace(/\s+/g, '_').slice(0, 20)}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    a.remove();
+                } else {
+                    const data = await response.json();
+                    // Check if the response contains an error
+                    if (data.success === false) {
+                        showError(data.error || 'Failed to export data.');
+                        return;
+                    }
+                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `properties_${lastSearchType}_${lastSearchValue.replace(/\s+/g, '_').slice(0, 20)}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    a.remove();
+                }
+            } catch (error) {
+                showError('Failed to export data. Please try again.');
+            }
+        }
+
+        // Escape HTML helper
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
