@@ -177,6 +177,49 @@
             animation: logoPulse 2s ease-in-out 1s;
         }
         /* ========== END LOGO STYLES ========== */
+        
+        /* ========== PRICING STYLES ========== */
+        .price-tag {
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            color: #10b981;
+            font-weight: 600;
+            margin-left: 6px;
+        }
+        .price-tag-large {
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            color: #10b981;
+            font-weight: 600;
+        }
+        .pricing-notice {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-size: 12px;
+            color: #a7f3d0;
+            text-align: center;
+        }
+        .pricing-notice iconify-icon {
+            color: #10b981;
+            margin-right: 6px;
+        }
+        /* Payment required banner */
+        .payment-required-banner {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 20px;
+        }
+        /* ========== END PRICING STYLES ========== */
     </style>
 </head>
 <body class="antialiased selection:bg-white/10 selection:text-white overflow-x-hidden text-zinc-400">
@@ -360,25 +403,35 @@
             <!-- Search Panel -->
             <div class="glass-panel rounded-2xl p-8 mb-8">
                 <form id="searchForm">
+                    <!-- Pricing Notice -->
+                    <div class="pricing-notice mb-6">
+                        <iconify-icon icon="solar:shield-check-linear" width="16"></iconify-icon>
+                        <span>Standard searches: <strong>£1</strong> | Director searches: <strong>£3</strong> — Secure payment via Stripe</span>
+                    </div>
+
                     <!-- Search Type Selector -->
                     <div class="mb-6">
                         <label class="block text-[10px] uppercase tracking-widest text-zinc-500 mb-3">Search Type</label>
                         <div class="flex flex-wrap gap-2">
-                            <button type="button" class="search-type-btn active px-4 py-2 rounded-lg text-xs font-medium transition-all" data-type="name">
+                            <button type="button" class="search-type-btn active px-4 py-2 rounded-lg text-xs font-medium transition-all" data-type="name" data-price="100">
                                 <iconify-icon icon="solar:buildings-2-linear" class="mr-1.5"></iconify-icon>
                                 Company Name
+                                <span class="price-tag">£1</span>
                             </button>
-                            <button type="button" class="search-type-btn px-4 py-2 rounded-lg text-xs font-medium transition-all" data-type="number">
+                            <button type="button" class="search-type-btn px-4 py-2 rounded-lg text-xs font-medium transition-all" data-type="number" data-price="100">
                                 <iconify-icon icon="solar:hashtag-linear" class="mr-1.5"></iconify-icon>
                                 Company Number
+                                <span class="price-tag">£1</span>
                             </button>
-                            <button type="button" class="search-type-btn px-4 py-2 rounded-lg text-xs font-medium transition-all" data-type="director">
+                            <button type="button" class="search-type-btn px-4 py-2 rounded-lg text-xs font-medium transition-all" data-type="director" data-price="300">
                                 <iconify-icon icon="solar:user-bold" class="mr-1.5"></iconify-icon>
                                 Director Name
+                                <span class="price-tag">£3</span>
                             </button>
-                            <button type="button" class="search-type-btn px-4 py-2 rounded-lg text-xs font-medium transition-all" data-type="address">
+                            <button type="button" class="search-type-btn px-4 py-2 rounded-lg text-xs font-medium transition-all" data-type="address" data-price="100">
                                 <iconify-icon icon="solar:map-point-linear" class="mr-1.5"></iconify-icon>
                                 Address
+                                <span class="price-tag">£1</span>
                             </button>
                         </div>
                     </div>
@@ -402,9 +455,10 @@
                     </div>
 
                     <!-- Submit Button -->
-                    <button type="submit" id="searchBtn" class="w-full bg-white text-black rounded-xl px-6 py-4 flex items-center justify-center gap-2 hover:bg-zinc-200 transition-all font-semibold text-sm uppercase tracking-wider">
-                        <span id="btnText">Search Registry</span>
+                    <button type="submit" id="searchBtn" class="w-full bg-white text-black rounded-xl px-6 py-4 flex items-center justify-center gap-3 hover:bg-zinc-200 transition-all font-semibold text-sm uppercase tracking-wider">
                         <iconify-icon id="btnIcon" icon="solar:magnifer-linear" width="16"></iconify-icon>
+                        <span id="btnText">Search Registry</span>
+                        <span id="btnPrice" class="price-tag-large">£1.00</span>
                         <iconify-icon id="btnSpinner" icon="svg-spinners:ring-resize" width="16" class="hidden"></iconify-icon>
                     </button>
                 </form>
@@ -470,6 +524,24 @@
                     <p class="text-red-400" id="errorText"></p>
                 </div>
             </div>
+
+            <!-- Payment Cancelled Section -->
+            <div id="paymentCancelled" class="hidden">
+                <div class="payment-required-banner text-center">
+                    <iconify-icon icon="solar:close-circle-linear" width="32" class="text-amber-500 mb-2"></iconify-icon>
+                    <h3 class="text-amber-400 font-medium mb-2">Payment Cancelled</h3>
+                    <p class="text-zinc-400 text-sm">Your payment was cancelled. No charge has been made.</p>
+                    <p class="text-zinc-500 text-xs mt-2">Enter your search query and try again when ready.</p>
+                </div>
+            </div>
+
+            <!-- Payment Success Section -->
+            <div id="paymentSuccess" class="hidden mb-6">
+                <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 text-center">
+                    <iconify-icon icon="solar:check-circle-linear" width="24" class="text-emerald-500 mr-2"></iconify-icon>
+                    <span class="text-emerald-400 text-sm">Payment successful! Loading your search results...</span>
+                </div>
+            </div>
         </div>
     </section>
 
@@ -492,6 +564,14 @@
     </footer>
 
     <script>
+        // Pricing configuration (in pence)
+        const SEARCH_PRICES = {
+            name: 100,      // £1
+            number: 100,    // £1
+            address: 100,   // £1
+            director: 300   // £3
+        };
+
         // State
         let currentSearchType = 'name';
         let lastSearchType = 'name';
@@ -504,6 +584,7 @@
         const searchBtn = document.getElementById('searchBtn');
         const btnText = document.getElementById('btnText');
         const btnIcon = document.getElementById('btnIcon');
+        const btnPrice = document.getElementById('btnPrice');
         const btnSpinner = document.getElementById('btnSpinner');
         const resultsSection = document.getElementById('resultsSection');
         const resultsList = document.getElementById('resultsList');
@@ -518,9 +599,22 @@
         const directorsTitle = document.getElementById('directorsTitle');
         const errorMessage = document.getElementById('errorMessage');
         const errorText = document.getElementById('errorText');
+        const paymentCancelled = document.getElementById('paymentCancelled');
+        const paymentSuccess = document.getElementById('paymentSuccess');
         const exportCsvBtn = document.getElementById('exportCsvBtn');
         const exportJsonBtn = document.getElementById('exportJsonBtn');
         const searchTypeBtns = document.querySelectorAll('.search-type-btn');
+
+        // Format price from pence to display string
+        function formatPrice(pricePence) {
+            return `£${(pricePence / 100).toFixed(2)}`;
+        }
+
+        // Update button price display
+        function updateButtonPrice() {
+            const pricePence = SEARCH_PRICES[currentSearchType] || 100;
+            btnPrice.textContent = formatPrice(pricePence);
+        }
 
         // Search type button styles
         const updateSearchTypeBtnStyles = () => {
@@ -535,14 +629,16 @@
             });
         };
 
-        // Initialize button styles
+        // Initialize button styles and price
         updateSearchTypeBtnStyles();
+        updateButtonPrice();
 
         // Search type selection
         searchTypeBtns.forEach(btn => {
             btn.addEventListener('click', () => {
                 currentSearchType = btn.dataset.type;
                 updateSearchTypeBtnStyles();
+                updateButtonPrice();
                 
                 // Update label and placeholder
                 const configs = {
@@ -558,7 +654,7 @@
             });
         });
 
-        // Form submission
+        // Form submission - redirect to Stripe checkout
         searchForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const searchValue = searchInput.value.trim();
@@ -568,26 +664,24 @@
             lastSearchType = currentSearchType;
             lastSearchValue = searchValue;
             
-            await executeSearch(currentSearchType, searchValue);
+            await initiateCheckout(currentSearchType, searchValue);
         });
 
-        // Execute search
-        async function executeSearch(searchType, searchValue) {
+        // Initiate Stripe Checkout
+        async function initiateCheckout(searchType, searchValue) {
             // Show loading state
-            btnText.textContent = searchType === 'director' ? 'Searching Companies House...' : 'Searching...';
+            const pricePence = SEARCH_PRICES[searchType] || 100;
+            btnText.textContent = 'Redirecting to payment...';
             btnIcon.classList.add('hidden');
+            btnPrice.classList.add('hidden');
             btnSpinner.classList.remove('hidden');
             searchBtn.disabled = true;
             
-            // Hide previous results
-            resultsSection.classList.add('hidden');
-            noResults.classList.add('hidden');
-            suggestionsSection.classList.add('hidden');
-            directorsSection.classList.add('hidden');
-            errorMessage.classList.add('hidden');
+            // Hide any previous messages
+            hideAllMessages();
 
             try {
-                const response = await fetch('/api/search', {
+                const response = await fetch('/api/create-checkout', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -597,6 +691,53 @@
                 });
 
                 const data = await response.json();
+
+                if (data.success && data.checkout_url) {
+                    // Redirect to Stripe Checkout
+                    window.location.href = data.checkout_url;
+                } else {
+                    showError(data.error || 'Failed to create checkout session');
+                    resetButtonState();
+                }
+            } catch (error) {
+                showError('Failed to connect to the payment server. Please try again.');
+                resetButtonState();
+            }
+        }
+
+        // Execute search with payment verification
+        async function executeSearchWithPayment(searchType, searchValue, sessionId) {
+            // Show loading state
+            btnText.textContent = searchType === 'director' ? 'Searching Companies House...' : 'Searching...';
+            btnIcon.classList.add('hidden');
+            btnPrice.classList.add('hidden');
+            btnSpinner.classList.remove('hidden');
+            searchBtn.disabled = true;
+            
+            // Show payment success message
+            paymentSuccess.classList.remove('hidden');
+            
+            // Hide previous results
+            hideAllMessages();
+            paymentSuccess.classList.remove('hidden'); // Keep success visible
+
+            try {
+                const response = await fetch('/api/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        search_type: searchType,
+                        search_value: searchValue,
+                        session_id: sessionId
+                    })
+                });
+
+                const data = await response.json();
+                
+                // Hide payment success after a moment
+                setTimeout(() => {
+                    paymentSuccess.classList.add('hidden');
+                }, 2000);
 
                 if (data.success) {
                     // For director searches, display found directors/companies first
@@ -619,22 +760,96 @@
                         noResults.classList.remove('hidden');
                     }
                 } else {
-                    showError(data.error || 'An error occurred');
+                    // Handle payment required error
+                    if (data.payment_required) {
+                        showError('Payment verification failed. Please try your search again.');
+                    } else {
+                        showError(data.error || 'An error occurred');
+                    }
                     // Still show suggestions if available
                     if (data.suggestions && data.suggestions.length > 0) {
                         displaySuggestions(data.suggestions);
                     }
                 }
             } catch (error) {
+                paymentSuccess.classList.add('hidden');
                 showError('Failed to connect to the server. Please try again.');
             } finally {
-                // Reset button state
-                btnText.textContent = 'Search Registry';
-                btnIcon.classList.remove('hidden');
-                btnSpinner.classList.add('hidden');
-                searchBtn.disabled = false;
+                resetButtonState();
             }
         }
+
+        // Hide all message sections
+        function hideAllMessages() {
+            resultsSection.classList.add('hidden');
+            noResults.classList.add('hidden');
+            suggestionsSection.classList.add('hidden');
+            directorsSection.classList.add('hidden');
+            errorMessage.classList.add('hidden');
+            paymentCancelled.classList.add('hidden');
+            paymentSuccess.classList.add('hidden');
+        }
+
+        // Reset button to default state
+        function resetButtonState() {
+            btnText.textContent = 'Search Registry';
+            btnIcon.classList.remove('hidden');
+            btnPrice.classList.remove('hidden');
+            btnSpinner.classList.add('hidden');
+            searchBtn.disabled = false;
+            updateButtonPrice();
+        }
+
+        // Check URL parameters on page load
+        function handleUrlParameters() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const sessionId = urlParams.get('session_id');
+            const searchType = urlParams.get('search_type');
+            const searchValue = urlParams.get('search_value');
+            const cancelled = urlParams.get('cancelled');
+            
+            // Clean up URL (remove query params)
+            if (sessionId || cancelled) {
+                const cleanUrl = window.location.pathname;
+                window.history.replaceState({}, document.title, cleanUrl);
+            }
+            
+            // Handle cancelled payment
+            if (cancelled === 'true') {
+                paymentCancelled.classList.remove('hidden');
+                return;
+            }
+            
+            // Handle successful payment - execute the search
+            if (sessionId && searchType && searchValue) {
+                // Set the form values
+                currentSearchType = searchType;
+                searchInput.value = decodeURIComponent(searchValue);
+                updateSearchTypeBtnStyles();
+                updateButtonPrice();
+                
+                // Update label
+                const configs = {
+                    name: { label: 'Company Name' },
+                    number: { label: 'Company Number' },
+                    director: { label: 'Director Name' },
+                    address: { label: 'Address or Postcode' }
+                };
+                if (configs[searchType]) {
+                    searchLabel.textContent = configs[searchType].label;
+                }
+                
+                // Store for export
+                lastSearchType = searchType;
+                lastSearchValue = decodeURIComponent(searchValue);
+                
+                // Execute the search with payment verification
+                executeSearchWithPayment(searchType, decodeURIComponent(searchValue), sessionId);
+            }
+        }
+
+        // Run on page load
+        handleUrlParameters();
 
         // Display directors found (for director searches)
         function displayDirectors(directors, searchValue) {
@@ -748,7 +963,9 @@
                     searchInput.value = name;
                     currentSearchType = 'name';
                     updateSearchTypeBtnStyles();
-                    executeSearch('name', name);
+                    updateButtonPrice();
+                    // Initiate new checkout for the suggested search
+                    initiateCheckout('name', name);
                 });
             });
         }

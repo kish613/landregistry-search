@@ -4,5 +4,6 @@ rapidfuzz==3.9.1
 psycopg2-binary==2.9.9
 python-dotenv==1.0.0
 requests==2.31.0
+stripe==11.4.1
 
 

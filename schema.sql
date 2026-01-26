@@ -38,4 +38,22 @@ CREATE INDEX IF NOT EXISTS idx_property_id ON proprietors(property_id);
 CREATE INDEX IF NOT EXISTS idx_title_number ON properties(title_number);
 CREATE INDEX IF NOT EXISTS idx_postcode ON properties(postcode);
 
+-- Payments table for tracking Stripe transactions
+CREATE TABLE IF NOT EXISTS payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    stripe_session_id TEXT UNIQUE NOT NULL,
+    search_type TEXT NOT NULL,
+    search_value TEXT NOT NULL,
+    amount_pence INTEGER NOT NULL,
+    currency TEXT DEFAULT 'gbp',
+    status TEXT DEFAULT 'pending',
+    customer_email TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP,
+    used_at TIMESTAMP
+);
+
+-- Index for fast payment lookup by session ID
+CREATE INDEX IF NOT EXISTS idx_stripe_session_id ON payments(stripe_session_id);
+CREATE INDEX IF NOT EXISTS idx_payment_status ON payments(status);
 

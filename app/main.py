@@ -9,9 +9,11 @@ import os
 import csv
 import io
 import requests
+import stripe
 from pathlib import Path
 from rapidfuzz import fuzz, process
 from dotenv import load_dotenv
+from datetime import datetime
 
 # Load environment variables from .env or env.local
 load_dotenv()
@@ -25,6 +27,21 @@ DATABASE_URL = os.environ.get('DATABASE_URL')
 # Companies House API Key
 COMPANIES_HOUSE_API_KEY = os.environ.get('COMPANIES_HOUSE_API_KEY')
 COMPANIES_HOUSE_BASE_URL = 'https://api.company-information.service.gov.uk'
+
+# Stripe Configuration
+stripe.api_key = os.environ.get('STRIPE_SECRET_KEY')
+STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY')
+
+# Pricing in pence (£1 = 100 pence, £3 = 300 pence)
+SEARCH_PRICES = {
+    'name': 100,      # £1 for company name search
+    'number': 100,    # £1 for company number search
+    'address': 100,   # £1 for address search
+    'director': 300   # £3 for director search
+}
+
+# In-memory storage for used sessions (in production, use database)
+used_sessions = set()
 
 # For local development fallback to SQLite
 BASE_DIR = Path(__file__).parent.parent
@@ -50,6 +67,92 @@ def dict_cursor(conn):
         return conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     else:
         return conn.cursor()
+
+
+def record_payment(stripe_session_id, search_type, search_value, amount_pence, status='pending'):
+    """Record a payment in the database"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        if DATABASE_URL:
+            cursor.execute("""
+                INSERT INTO payments (stripe_session_id, search_type, search_value, amount_pence, status)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (stripe_session_id) DO UPDATE SET status = EXCLUDED.status
+            """, (stripe_session_id, search_type, search_value, amount_pence, status))
+        else:
+            cursor.execute("""
+                INSERT OR REPLACE INTO payments (stripe_session_id, search_type, search_value, amount_pence, status)
+                VALUES (?, ?, ?, ?, ?)
+            """, (stripe_session_id, search_type, search_value, amount_pence, status))
+        
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Error recording payment: {e}")
+        return False
+
+
+def mark_payment_used(stripe_session_id):
+    """Mark a payment as used in the database"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        if DATABASE_URL:
+            cursor.execute("""
+                UPDATE payments 
+                SET used_at = CURRENT_TIMESTAMP, status = 'used'
+                WHERE stripe_session_id = %s AND used_at IS NULL
+            """, (stripe_session_id,))
+        else:
+            cursor.execute("""
+                UPDATE payments 
+                SET used_at = CURRENT_TIMESTAMP, status = 'used'
+                WHERE stripe_session_id = ? AND used_at IS NULL
+            """, (stripe_session_id,))
+        
+        rows_affected = cursor.rowcount
+        conn.commit()
+        conn.close()
+        return rows_affected > 0
+    except Exception as e:
+        print(f"Error marking payment as used: {e}")
+        return False
+
+
+def is_payment_used(stripe_session_id):
+    """Check if a payment has already been used"""
+    # First check in-memory cache
+    if stripe_session_id in used_sessions:
+        return True
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        if DATABASE_URL:
+            cursor.execute("""
+                SELECT used_at FROM payments WHERE stripe_session_id = %s
+            """, (stripe_session_id,))
+        else:
+            cursor.execute("""
+                SELECT used_at FROM payments WHERE stripe_session_id = ?
+            """, (stripe_session_id,))
+        
+        result = cursor.fetchone()
+        conn.close()
+        
+        if result:
+            used_at = result[0] if isinstance(result, tuple) else result.get('used_at')
+            return used_at is not None
+        return False
+    except Exception as e:
+        print(f"Error checking payment status: {e}")
+        # Fall back to in-memory check
+        return stripe_session_id in used_sessions
 
 
 def search_properties_by_company(company_number):
@@ -483,12 +586,144 @@ def search():
     return render_template('search.html')
 
 
+@app.route('/api/create-checkout', methods=['POST'])
+def create_checkout():
+    """Create a Stripe Checkout Session for a search"""
+    data = request.get_json()
+    search_type = data.get('search_type', 'number')
+    search_value = data.get('search_value', '').strip()
+    
+    if not search_value:
+        return jsonify({
+            'success': False,
+            'error': 'Search value is required'
+        }), 400
+    
+    if search_type not in SEARCH_PRICES:
+        return jsonify({
+            'success': False,
+            'error': 'Invalid search type'
+        }), 400
+    
+    # Check if Stripe is configured
+    if not stripe.api_key or stripe.api_key == 'sk_test_your_secret_key_here':
+        return jsonify({
+            'success': False,
+            'error': 'Payment system not configured. Please contact support.'
+        }), 500
+    
+    price_pence = SEARCH_PRICES[search_type]
+    price_display = f"£{price_pence / 100:.2f}"
+    
+    # Determine the search type label for display
+    search_type_labels = {
+        'name': 'Company Name Search',
+        'number': 'Company Number Search',
+        'address': 'Address Search',
+        'director': 'Director Search'
+    }
+    
+    try:
+        # Get the base URL for redirects
+        base_url = request.url_root.rstrip('/')
+        
+        # Create Stripe Checkout Session
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price_data': {
+                    'currency': 'gbp',
+                    'product_data': {
+                        'name': search_type_labels.get(search_type, 'Registry Search'),
+                        'description': f'Search for: {search_value[:50]}{"..." if len(search_value) > 50 else ""}'
+                    },
+                    'unit_amount': price_pence,
+                },
+                'quantity': 1,
+            }],
+            mode='payment',
+            success_url=f'{base_url}/search?session_id={{CHECKOUT_SESSION_ID}}&search_type={search_type}&search_value={requests.utils.quote(search_value)}',
+            cancel_url=f'{base_url}/search?cancelled=true',
+            metadata={
+                'search_type': search_type,
+                'search_value': search_value
+            }
+        )
+        
+        return jsonify({
+            'success': True,
+            'checkout_url': checkout_session.url,
+            'session_id': checkout_session.id
+        })
+        
+    except stripe.error.StripeError as e:
+        return jsonify({
+            'success': False,
+            'error': f'Payment error: {str(e)}'
+        }), 500
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error creating checkout: {str(e)}'
+        }), 500
+
+
+def verify_stripe_payment(session_id, expected_search_type, expected_search_value):
+    """
+    Verify that a Stripe Checkout Session was paid and matches the search parameters.
+    Returns (is_valid, error_message)
+    """
+    if not session_id:
+        return False, "Payment required. Please complete checkout to search."
+    
+    # Check if session was already used (in-memory + database)
+    if session_id in used_sessions or is_payment_used(session_id):
+        return False, "This payment has already been used. Please make a new payment to search again."
+    
+    try:
+        # Retrieve the session from Stripe
+        session = stripe.checkout.Session.retrieve(session_id)
+        
+        # Verify payment was successful
+        if session.payment_status != 'paid':
+            return False, "Payment not completed. Please complete checkout to search."
+        
+        # Verify the search parameters match what was paid for
+        metadata = session.metadata or {}
+        paid_search_type = metadata.get('search_type', '')
+        paid_search_value = metadata.get('search_value', '')
+        
+        if paid_search_type != expected_search_type:
+            return False, "Payment was for a different search type. Please make a new payment."
+        
+        if paid_search_value.strip().lower() != expected_search_value.strip().lower():
+            return False, "Payment was for a different search query. Please make a new payment."
+        
+        # Mark session as used (both in-memory and database for reliability)
+        used_sessions.add(session_id)
+        mark_payment_used(session_id)
+        
+        # Record the payment in the database (update status to 'used')
+        price_pence = SEARCH_PRICES.get(paid_search_type, 100)
+        record_payment(session_id, paid_search_type, paid_search_value, price_pence, 'used')
+        
+        return True, None
+        
+    except stripe.error.InvalidRequestError:
+        return False, "Invalid payment session. Please try again."
+    except stripe.error.StripeError as e:
+        return False, f"Payment verification failed: {str(e)}"
+    except Exception as e:
+        return False, f"Error verifying payment: {str(e)}"
+
+
 @app.route('/api/search', methods=['POST'])
 def api_search():
     """API endpoint for searching properties"""
     data = request.get_json()
     search_type = data.get('search_type', 'number')  # 'number', 'name', 'address', or 'director'
     search_value = data.get('search_value', '').strip()
+    session_id = data.get('session_id')  # Stripe Checkout Session ID
     
     if not search_value:
         return jsonify({
@@ -498,6 +733,23 @@ def api_search():
             'count': 0,
             'suggestions': []
         })
+    
+    # Verify payment before executing search
+    # Only require payment if Stripe is configured
+    if stripe.api_key and stripe.api_key != 'sk_test_your_secret_key_here':
+        is_valid, payment_error = verify_stripe_payment(session_id, search_type, search_value)
+        if not is_valid:
+            price_pence = SEARCH_PRICES.get(search_type, 100)
+            return jsonify({
+                'success': False,
+                'error': payment_error,
+                'payment_required': True,
+                'price_pence': price_pence,
+                'price_display': f'£{price_pence / 100:.2f}',
+                'results': [],
+                'count': 0,
+                'suggestions': []
+            })
     
     # Search by company number, name, address, or director
     if search_type == 'name':
