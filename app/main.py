@@ -26,8 +26,12 @@ load_dotenv('env.local')
 
 app = Flask(__name__)
 
-# Secret key for session management
-app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
+# Secret key for session management - MUST be set in production
+_secret_key = os.environ.get('SECRET_KEY')
+if not _secret_key:
+    _secret_key = 'dev-fallback-key-change-in-production-12345'
+    print("WARNING: SECRET_KEY not set! Using fallback. Set SECRET_KEY in production!")
+app.secret_key = _secret_key
 app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
@@ -1531,4 +1535,3 @@ if __name__ == '__main__':
         print("Warning: Database not found. Please run scripts/load_data.py first.")
     
     app.run(debug=True, host='127.0.0.1', port=5000)
-
