@@ -612,13 +612,15 @@
                         <p class="text-zinc-500 text-sm" id="resultsCount"></p>
                     </div>
                     <div class="flex gap-2">
-                        <button id="exportCsvBtn" class="px-4 py-2 rounded-lg bg-zinc-900 border border-white/10 text-zinc-400 hover:text-white hover:border-white/20 transition-all text-xs uppercase tracking-wider font-medium flex items-center gap-2">
-                            <iconify-icon icon="solar:document-text-linear" width="14"></iconify-icon>
-                            CSV
+                        <button id="exportCsvBtn" class="px-4 py-2 rounded-lg bg-zinc-900 border border-white/10 text-zinc-400 hover:text-white hover:border-white/20 transition-all text-xs uppercase tracking-wider font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <iconify-icon id="csvIcon" icon="solar:document-text-linear" width="14"></iconify-icon>
+                            <iconify-icon id="csvSpinner" icon="svg-spinners:ring-resize" width="14" class="hidden"></iconify-icon>
+                            <span id="csvText">CSV</span>
                         </button>
-                        <button id="exportJsonBtn" class="px-4 py-2 rounded-lg bg-zinc-900 border border-white/10 text-zinc-400 hover:text-white hover:border-white/20 transition-all text-xs uppercase tracking-wider font-medium flex items-center gap-2">
-                            <iconify-icon icon="solar:code-linear" width="14"></iconify-icon>
-                            JSON
+                        <button id="exportJsonBtn" class="px-4 py-2 rounded-lg bg-zinc-900 border border-white/10 text-zinc-400 hover:text-white hover:border-white/20 transition-all text-xs uppercase tracking-wider font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <iconify-icon id="jsonIcon" icon="solar:code-linear" width="14"></iconify-icon>
+                            <iconify-icon id="jsonSpinner" icon="svg-spinners:ring-resize" width="14" class="hidden"></iconify-icon>
+                            <span id="jsonText">JSON</span>
                         </button>
                     </div>
                 </div>
@@ -728,6 +730,7 @@
         let currentSearchType = 'name';
         let lastSearchType = 'name';
         let lastSearchValue = '';
+        let lastSearchResults = []; // Store results for fast client-side export
 
         // Logout function
         async function logout() {
@@ -1213,6 +1216,8 @@
 
         // Display results
         function displayResults(results, searchType, searchValue) {
+            // Store results for fast client-side export
+            lastSearchResults = results;
             resultsSection.classList.remove('hidden');
             
             // Update header
@@ -1302,60 +1307,113 @@
         exportCsvBtn.addEventListener('click', () => exportResults('csv'));
         exportJsonBtn.addEventListener('click', () => exportResults('json'));
 
-        async function exportResults(format) {
+        function exportResults(format) {
             // Check if a search has been performed
-            if (!lastSearchValue) {
+            if (!lastSearchValue || lastSearchResults.length === 0) {
                 showError('Please perform a search first before exporting.');
                 return;
             }
 
-            try {
-                const response = await fetch(`/api/export/${format}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        search_type: lastSearchType,
-                        search_value: lastSearchValue
-                    })
-                });
+            // Get UI elements for loading state
+            const csvIcon = document.getElementById('csvIcon');
+            const csvSpinner = document.getElementById('csvSpinner');
+            const csvText = document.getElementById('csvText');
+            const jsonIcon = document.getElementById('jsonIcon');
+            const jsonSpinner = document.getElementById('jsonSpinner');
+            const jsonText = document.getElementById('jsonText');
 
-                // Check if response is successful
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    showError(errorData.error || 'Failed to export data.');
-                    return;
-                }
-
-                if (format === 'csv') {
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `properties_${lastSearchType}_${lastSearchValue.replace(/\s+/g, '_').slice(0, 20)}.csv`;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    a.remove();
-                } else {
-                    const data = await response.json();
-                    // Check if the response contains an error
-                    if (data.success === false) {
-                        showError(data.error || 'Failed to export data.');
-                        return;
-                    }
-                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `properties_${lastSearchType}_${lastSearchValue.replace(/\s+/g, '_').slice(0, 20)}.json`;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    a.remove();
-                }
-            } catch (error) {
-                showError('Failed to export data. Please try again.');
+            // Show loading state
+            if (format === 'csv') {
+                csvIcon.classList.add('hidden');
+                csvSpinner.classList.remove('hidden');
+                csvText.textContent = 'Generating...';
+                exportCsvBtn.disabled = true;
+            } else {
+                jsonIcon.classList.add('hidden');
+                jsonSpinner.classList.remove('hidden');
+                jsonText.textContent = 'Generating...';
+                exportJsonBtn.disabled = true;
             }
+
+            // Use setTimeout to allow UI to update before processing
+            setTimeout(() => {
+                try {
+                    const filename = `properties_${lastSearchType}_${lastSearchValue.replace(/\s+/g, '_').slice(0, 20)}`;
+                    
+                    if (format === 'csv') {
+                        // Generate CSV client-side (instant!)
+                        const csvContent = generateCSV(lastSearchResults);
+                        downloadFile(csvContent, `${filename}.csv`, 'text/csv;charset=utf-8;');
+                    } else {
+                        // Generate JSON client-side (instant!)
+                        const jsonData = {
+                            search_type: lastSearchType,
+                            search_value: lastSearchValue,
+                            count: lastSearchResults.length,
+                            exported_at: new Date().toISOString(),
+                            properties: lastSearchResults
+                        };
+                        const jsonContent = JSON.stringify(jsonData, null, 2);
+                        downloadFile(jsonContent, `${filename}.json`, 'application/json');
+                    }
+                } catch (error) {
+                    showError('Failed to export data. Please try again.');
+                } finally {
+                    // Reset loading state
+                    if (format === 'csv') {
+                        csvIcon.classList.remove('hidden');
+                        csvSpinner.classList.add('hidden');
+                        csvText.textContent = 'CSV';
+                        exportCsvBtn.disabled = false;
+                    } else {
+                        jsonIcon.classList.remove('hidden');
+                        jsonSpinner.classList.add('hidden');
+                        jsonText.textContent = 'JSON';
+                        exportJsonBtn.disabled = false;
+                    }
+                }
+            }, 50); // Small delay to show loading state
+        }
+
+        // Generate CSV from results array
+        function generateCSV(results) {
+            const headers = [
+                'title_number', 'tenure', 'property_address', 'district', 'county',
+                'region', 'postcode', 'price_paid', 'proprietor_name',
+                'company_registration_no', 'proprietorship_category', 'date_proprietor_added'
+            ];
+            
+            // CSV header row
+            let csv = headers.join(',') + '\n';
+            
+            // Data rows
+            results.forEach(row => {
+                const values = headers.map(header => {
+                    const value = row[header] || '';
+                    // Escape quotes and wrap in quotes if contains comma, quote, or newline
+                    const stringValue = String(value);
+                    if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+                        return '"' + stringValue.replace(/"/g, '""') + '"';
+                    }
+                    return stringValue;
+                });
+                csv += values.join(',') + '\n';
+            });
+            
+            return csv;
+        }
+
+        // Download file helper
+        function downloadFile(content, filename, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            a.remove();
         }
 
         // Escape HTML helper
