@@ -1,8 +1,9 @@
 """
 Flask Web Application for Property Lookup by Company Number
+With User Account System and Credits
 """
 
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, session, redirect, url_for
 import psycopg2
 import psycopg2.extras
 import os
@@ -10,10 +11,14 @@ import csv
 import io
 import requests
 import stripe
+import bcrypt
+import secrets
+import resend
 from pathlib import Path
 from rapidfuzz import fuzz, process
 from dotenv import load_dotenv
-from datetime import datetime
+from datetime import datetime, timedelta
+from functools import wraps
 
 # Load environment variables from .env or env.local
 load_dotenv()
@@ -21,8 +26,37 @@ load_dotenv('env.local')
 
 app = Flask(__name__)
 
+# Secret key for session management
+app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
+
 # Database URL from environment
 DATABASE_URL = os.environ.get('DATABASE_URL')
+
+# Resend API for emails
+RESEND_API_KEY = os.environ.get('RESEND_API_KEY')
+if RESEND_API_KEY:
+    resend.api_key = RESEND_API_KEY
+
+# Email sender address
+EMAIL_FROM = os.environ.get('EMAIL_FROM', 'noreply@landregistry.company')
+
+# Base URL for links in emails
+BASE_URL = os.environ.get('BASE_URL', 'http://localhost:5000')
+
+# Credit costs for different search types
+CREDIT_COSTS = {
+    'name': 1,      # 1 credit for company name search
+    'number': 1,    # 1 credit for company number search
+    'address': 1,   # 1 credit for address search
+    'director': 3   # 3 credits for director search
+}
+
+# Initial credits for new users
+SIGNUP_CREDITS = 10
 
 # Companies House API Key
 COMPANIES_HOUSE_API_KEY = os.environ.get('COMPANIES_HOUSE_API_KEY')
@@ -67,6 +101,329 @@ def dict_cursor(conn):
         return conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     else:
         return conn.cursor()
+
+
+# ============================================
+# USER AUTHENTICATION HELPERS
+# ============================================
+
+def hash_password(password):
+    """Hash a password using bcrypt"""
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+
+def verify_password(password, password_hash):
+    """Verify a password against its hash"""
+    return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
+
+
+def generate_token():
+    """Generate a secure random token"""
+    return secrets.token_urlsafe(32)
+
+
+def get_current_user():
+    """Get the current logged-in user from session"""
+    user_id = session.get('user_id')
+    if not user_id:
+        return None
+    
+    try:
+        conn = get_db_connection()
+        cursor = dict_cursor(conn)
+        
+        if DATABASE_URL:
+            cursor.execute("SELECT id, email, credits, is_unlimited, email_verified, created_at, last_login FROM users WHERE id = %s", (user_id,))
+        else:
+            cursor.execute("SELECT id, email, credits, is_unlimited, email_verified, created_at, last_login FROM users WHERE id = ?", (user_id,))
+        
+        user = cursor.fetchone()
+        conn.close()
+        
+        if user:
+            return dict(user) if hasattr(user, 'keys') else {
+                'id': user[0], 'email': user[1], 'credits': user[2],
+                'is_unlimited': user[3], 'email_verified': user[4], 'created_at': user[5], 'last_login': user[6]
+            }
+        return None
+    except Exception as e:
+        print(f"Error getting current user: {e}")
+        return None
+
+
+def login_required(f):
+    """Decorator to require login for a route"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not get_current_user():
+            if request.is_json:
+                return jsonify({'success': False, 'error': 'Authentication required', 'login_required': True}), 401
+            return redirect(url_for('auth_page'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def create_user(email, password=None):
+    """Create a new user with initial credits"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        password_hash = hash_password(password) if password else None
+        
+        if DATABASE_URL:
+            cursor.execute("""
+                INSERT INTO users (email, password_hash, credits, email_verified)
+                VALUES (%s, %s, %s, %s)
+                RETURNING id
+            """, (email.lower(), password_hash, SIGNUP_CREDITS, password is not None))
+            user_id = cursor.fetchone()[0]
+        else:
+            cursor.execute("""
+                INSERT INTO users (email, password_hash, credits, email_verified)
+                VALUES (?, ?, ?, ?)
+            """, (email.lower(), password_hash, SIGNUP_CREDITS, password is not None))
+            user_id = cursor.lastrowid
+        
+        # Record the signup bonus in transactions
+        if DATABASE_URL:
+            cursor.execute("""
+                INSERT INTO credit_transactions (user_id, amount, transaction_type, description)
+                VALUES (%s, %s, %s, %s)
+            """, (user_id, SIGNUP_CREDITS, 'signup_bonus', 'Welcome bonus - 10 free credits'))
+        else:
+            cursor.execute("""
+                INSERT INTO credit_transactions (user_id, amount, transaction_type, description)
+                VALUES (?, ?, ?, ?)
+            """, (user_id, SIGNUP_CREDITS, 'signup_bonus', 'Welcome bonus - 10 free credits'))
+        
+        conn.commit()
+        conn.close()
+        return user_id
+    except Exception as e:
+        print(f"Error creating user: {e}")
+        return None
+
+
+def get_user_by_email(email):
+    """Get a user by email address"""
+    try:
+        conn = get_db_connection()
+        cursor = dict_cursor(conn)
+        
+        if DATABASE_URL:
+            cursor.execute("SELECT * FROM users WHERE email = %s", (email.lower(),))
+        else:
+            cursor.execute("SELECT * FROM users WHERE email = ?", (email.lower(),))
+        
+        user = cursor.fetchone()
+        conn.close()
+        
+        if user:
+            return dict(user) if hasattr(user, 'keys') else None
+        return None
+    except Exception as e:
+        print(f"Error getting user: {e}")
+        return None
+
+
+def update_user_last_login(user_id):
+    """Update user's last login timestamp"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        if DATABASE_URL:
+            cursor.execute("UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = %s", (user_id,))
+        else:
+            cursor.execute("UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?", (user_id,))
+        
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error updating last login: {e}")
+
+
+def deduct_credits(user_id, amount, search_type, description=None):
+    """Deduct credits from a user's account"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Check if user has enough credits
+        if DATABASE_URL:
+            cursor.execute("SELECT credits FROM users WHERE id = %s", (user_id,))
+        else:
+            cursor.execute("SELECT credits FROM users WHERE id = ?", (user_id,))
+        
+        result = cursor.fetchone()
+        if not result or result[0] < amount:
+            conn.close()
+            return False
+        
+        # Deduct credits
+        if DATABASE_URL:
+            cursor.execute("UPDATE users SET credits = credits - %s WHERE id = %s", (amount, user_id))
+        else:
+            cursor.execute("UPDATE users SET credits = credits - ? WHERE id = ?", (amount, user_id))
+        
+        # Record transaction
+        desc = description or f'{search_type.capitalize()} search'
+        if DATABASE_URL:
+            cursor.execute("""
+                INSERT INTO credit_transactions (user_id, amount, transaction_type, search_type, description)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (user_id, -amount, 'search_used', search_type, desc))
+        else:
+            cursor.execute("""
+                INSERT INTO credit_transactions (user_id, amount, transaction_type, search_type, description)
+                VALUES (?, ?, ?, ?, ?)
+            """, (user_id, -amount, 'search_used', search_type, desc))
+        
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Error deducting credits: {e}")
+        return False
+
+
+def get_user_credits(user_id):
+    """Get user's current credit balance"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        if DATABASE_URL:
+            cursor.execute("SELECT credits FROM users WHERE id = %s", (user_id,))
+        else:
+            cursor.execute("SELECT credits FROM users WHERE id = ?", (user_id,))
+        
+        result = cursor.fetchone()
+        conn.close()
+        return result[0] if result else 0
+    except Exception as e:
+        print(f"Error getting credits: {e}")
+        return 0
+
+
+def create_magic_link(user_id):
+    """Create a magic link token for passwordless login"""
+    try:
+        token = generate_token()
+        expires_at = datetime.now() + timedelta(minutes=15)
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        if DATABASE_URL:
+            cursor.execute("""
+                INSERT INTO magic_links (user_id, token, expires_at)
+                VALUES (%s, %s, %s)
+            """, (user_id, token, expires_at))
+        else:
+            cursor.execute("""
+                INSERT INTO magic_links (user_id, token, expires_at)
+                VALUES (?, ?, ?)
+            """, (user_id, token, expires_at))
+        
+        conn.commit()
+        conn.close()
+        return token
+    except Exception as e:
+        print(f"Error creating magic link: {e}")
+        return None
+
+
+def verify_magic_link(token):
+    """Verify a magic link token and return user_id if valid"""
+    try:
+        conn = get_db_connection()
+        cursor = dict_cursor(conn)
+        
+        if DATABASE_URL:
+            cursor.execute("""
+                SELECT user_id, expires_at, used_at FROM magic_links WHERE token = %s
+            """, (token,))
+        else:
+            cursor.execute("""
+                SELECT user_id, expires_at, used_at FROM magic_links WHERE token = ?
+            """, (token,))
+        
+        result = cursor.fetchone()
+        
+        if not result:
+            conn.close()
+            return None, "Invalid or expired link"
+        
+        result_dict = dict(result) if hasattr(result, 'keys') else {
+            'user_id': result[0], 'expires_at': result[1], 'used_at': result[2]
+        }
+        
+        if result_dict['used_at']:
+            conn.close()
+            return None, "This link has already been used"
+        
+        if result_dict['expires_at'] < datetime.now():
+            conn.close()
+            return None, "This link has expired. Please request a new one."
+        
+        # Mark as used
+        if DATABASE_URL:
+            cursor.execute("UPDATE magic_links SET used_at = CURRENT_TIMESTAMP WHERE token = %s", (token,))
+        else:
+            cursor.execute("UPDATE magic_links SET used_at = CURRENT_TIMESTAMP WHERE token = ?", (token,))
+        
+        # Mark user email as verified
+        if DATABASE_URL:
+            cursor.execute("UPDATE users SET email_verified = TRUE WHERE id = %s", (result_dict['user_id'],))
+        else:
+            cursor.execute("UPDATE users SET email_verified = TRUE WHERE id = ?", (result_dict['user_id'],))
+        
+        conn.commit()
+        conn.close()
+        return result_dict['user_id'], None
+    except Exception as e:
+        print(f"Error verifying magic link: {e}")
+        return None, "An error occurred"
+
+
+def send_magic_link_email(email, token):
+    """Send magic link email using Resend"""
+    if not RESEND_API_KEY:
+        print(f"Magic link for {email}: {BASE_URL}/auth/verify?token={token}")
+        return True  # Return True for testing without email
+    
+    try:
+        magic_url = f"{BASE_URL}/auth/verify?token={token}"
+        
+        resend.Emails.send({
+            "from": EMAIL_FROM,
+            "to": email,
+            "subject": "Sign in to Corporate Land Registry",
+            "html": f"""
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+                <h1 style="color: #09090b; font-size: 24px; margin-bottom: 24px;">Sign in to Corporate Land Registry</h1>
+                <p style="color: #52525b; font-size: 16px; line-height: 24px; margin-bottom: 24px;">
+                    Click the button below to sign in to your account. This link will expire in 15 minutes.
+                </p>
+                <a href="{magic_url}" style="display: inline-block; background-color: #09090b; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">
+                    Sign In
+                </a>
+                <p style="color: #a1a1aa; font-size: 14px; margin-top: 32px;">
+                    If you didn't request this email, you can safely ignore it.
+                </p>
+                <hr style="border: none; border-top: 1px solid #e4e4e7; margin: 32px 0;">
+                <p style="color: #a1a1aa; font-size: 12px;">
+                    Corporate Land Registry - landregistry.company
+                </p>
+            </div>
+            """
+        })
+        return True
+    except Exception as e:
+        print(f"Error sending email: {e}")
+        return False
 
 
 def record_payment(stripe_session_id, search_type, search_value, amount_pence, status='pending'):
@@ -577,13 +934,209 @@ def search_properties_by_director(director_name):
 @app.route('/')
 def landing():
     """Landing page"""
-    return render_template('landing.html')
+    user = get_current_user()
+    return render_template('landing.html', user=user)
 
 
 @app.route('/search')
 def search():
     """Search page"""
-    return render_template('search.html')
+    user = get_current_user()
+    return render_template('search.html', user=user)
+
+
+@app.route('/auth')
+def auth_page():
+    """Login/Register page"""
+    # Redirect if already logged in
+    if get_current_user():
+        return redirect(url_for('search'))
+    return render_template('auth.html')
+
+
+@app.route('/auth/verify')
+def verify_magic_link_route():
+    """Verify magic link token and log user in"""
+    token = request.args.get('token')
+    if not token:
+        return redirect(url_for('auth_page'))
+    
+    user_id, error = verify_magic_link(token)
+    
+    if error:
+        return render_template('auth.html', error=error)
+    
+    # Log the user in
+    session.permanent = True
+    session['user_id'] = user_id
+    update_user_last_login(user_id)
+    
+    return redirect(url_for('search'))
+
+
+@app.route('/api/auth/register', methods=['POST'])
+def api_register():
+    """Register a new user account"""
+    data = request.get_json()
+    email = data.get('email', '').strip().lower()
+    password = data.get('password', '').strip()
+    use_magic_link = data.get('use_magic_link', False)
+    
+    if not email:
+        return jsonify({'success': False, 'error': 'Email is required'}), 400
+    
+    # Basic email validation
+    if '@' not in email or '.' not in email:
+        return jsonify({'success': False, 'error': 'Please enter a valid email address'}), 400
+    
+    # Check if user already exists
+    existing_user = get_user_by_email(email)
+    if existing_user:
+        return jsonify({'success': False, 'error': 'An account with this email already exists. Please log in.'}), 400
+    
+    # Validate password if provided
+    if password and len(password) < 8:
+        return jsonify({'success': False, 'error': 'Password must be at least 8 characters'}), 400
+    
+    # Create user
+    if use_magic_link or not password:
+        # Create user without password (magic link only)
+        user_id = create_user(email, password=None)
+        if not user_id:
+            return jsonify({'success': False, 'error': 'Failed to create account. Please try again.'}), 500
+        
+        # Send magic link
+        token = create_magic_link(user_id)
+        if token:
+            send_magic_link_email(email, token)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Check your email for a sign-in link!',
+            'magic_link_sent': True
+        })
+    else:
+        # Create user with password
+        user_id = create_user(email, password=password)
+        if not user_id:
+            return jsonify({'success': False, 'error': 'Failed to create account. Please try again.'}), 500
+        
+        # Log the user in
+        session.permanent = True
+        session['user_id'] = user_id
+        update_user_last_login(user_id)
+        
+        return jsonify({
+            'success': True,
+            'message': f'Account created! You have {SIGNUP_CREDITS} free credits.',
+            'user': {
+                'email': email,
+                'credits': SIGNUP_CREDITS
+            }
+        })
+
+
+@app.route('/api/auth/login', methods=['POST'])
+def api_login():
+    """Log in with email and password"""
+    data = request.get_json()
+    email = data.get('email', '').strip().lower()
+    password = data.get('password', '').strip()
+    
+    if not email:
+        return jsonify({'success': False, 'error': 'Email is required'}), 400
+    
+    user = get_user_by_email(email)
+    
+    if not user:
+        return jsonify({'success': False, 'error': 'No account found with this email'}), 400
+    
+    if not user.get('password_hash'):
+        # User registered with magic link only
+        return jsonify({
+            'success': False, 
+            'error': 'This account uses passwordless login. Click "Send Magic Link" to sign in.',
+            'needs_magic_link': True
+        }), 400
+    
+    if not password:
+        return jsonify({'success': False, 'error': 'Password is required'}), 400
+    
+    if not verify_password(password, user['password_hash']):
+        return jsonify({'success': False, 'error': 'Incorrect password'}), 400
+    
+    # Log the user in
+    session.permanent = True
+    session['user_id'] = user['id']
+    update_user_last_login(user['id'])
+    
+    return jsonify({
+        'success': True,
+        'message': 'Logged in successfully',
+        'user': {
+            'email': user['email'],
+            'credits': user['credits']
+        }
+    })
+
+
+@app.route('/api/auth/magic-link', methods=['POST'])
+def api_request_magic_link():
+    """Request a magic link for passwordless login"""
+    data = request.get_json()
+    email = data.get('email', '').strip().lower()
+    
+    if not email:
+        return jsonify({'success': False, 'error': 'Email is required'}), 400
+    
+    user = get_user_by_email(email)
+    
+    if not user:
+        # Create a new user for magic link
+        user_id = create_user(email, password=None)
+        if not user_id:
+            return jsonify({'success': False, 'error': 'Failed to create account. Please try again.'}), 500
+    else:
+        user_id = user['id']
+    
+    # Create and send magic link
+    token = create_magic_link(user_id)
+    if not token:
+        return jsonify({'success': False, 'error': 'Failed to create login link. Please try again.'}), 500
+    
+    if not send_magic_link_email(email, token):
+        return jsonify({'success': False, 'error': 'Failed to send email. Please try again.'}), 500
+    
+    return jsonify({
+        'success': True,
+        'message': 'Check your email for a sign-in link!'
+    })
+
+
+@app.route('/api/auth/logout', methods=['POST'])
+def api_logout():
+    """Log out the current user"""
+    session.pop('user_id', None)
+    return jsonify({'success': True, 'message': 'Logged out successfully'})
+
+
+@app.route('/api/auth/me', methods=['GET'])
+def api_get_current_user():
+    """Get the current logged-in user's info"""
+    user = get_current_user()
+    if not user:
+        return jsonify({'success': False, 'logged_in': False}), 401
+    
+    return jsonify({
+        'success': True,
+        'logged_in': True,
+        'user': {
+            'email': user['email'],
+            'credits': user['credits'],
+            'is_unlimited': user.get('is_unlimited', False),
+            'email_verified': user['email_verified']
+        }
+    })
 
 
 @app.route('/api/create-checkout', methods=['POST'])
@@ -724,6 +1277,7 @@ def api_search():
     search_type = data.get('search_type', 'number')  # 'number', 'name', 'address', or 'director'
     search_value = data.get('search_value', '').strip()
     session_id = data.get('session_id')  # Stripe Checkout Session ID
+    use_credits = data.get('use_credits', True)  # Whether to use credits if available
     
     if not search_value:
         return jsonify({
@@ -734,22 +1288,45 @@ def api_search():
             'suggestions': []
         })
     
-    # Verify payment before executing search
-    # Only require payment if Stripe is configured
-    if stripe.api_key and stripe.api_key != 'sk_test_your_secret_key_here':
-        is_valid, payment_error = verify_stripe_payment(session_id, search_type, search_value)
-        if not is_valid:
-            price_pence = SEARCH_PRICES.get(search_type, 100)
-            return jsonify({
-                'success': False,
-                'error': payment_error,
-                'payment_required': True,
-                'price_pence': price_pence,
-                'price_display': f'£{price_pence / 100:.2f}',
-                'results': [],
-                'count': 0,
-                'suggestions': []
-            })
+    # Get current user and check credits
+    user = get_current_user()
+    credit_cost = CREDIT_COSTS.get(search_type, 1)
+    credits_used = False
+    
+    # Check if user has unlimited access (friends/family)
+    if user and user.get('is_unlimited'):
+        credits_used = True  # Unlimited users don't need credits
+    # Try to use credits first if user is logged in
+    elif user and use_credits:
+        user_credits = get_user_credits(user['id'])
+        if user_credits >= credit_cost:
+            # Deduct credits
+            if deduct_credits(user['id'], credit_cost, search_type, f'Search: {search_value[:50]}'):
+                credits_used = True
+    
+    # If credits weren't used, verify payment
+    if not credits_used:
+        # Verify payment before executing search
+        # Only require payment if Stripe is configured
+        if stripe.api_key and stripe.api_key != 'sk_test_your_secret_key_here':
+            is_valid, payment_error = verify_stripe_payment(session_id, search_type, search_value)
+            if not is_valid:
+                price_pence = SEARCH_PRICES.get(search_type, 100)
+                return jsonify({
+                    'success': False,
+                    'error': payment_error if not user else 'Insufficient credits. Please add more credits or pay for this search.',
+                    'payment_required': True,
+                    'price_pence': price_pence,
+                    'price_display': f'£{price_pence / 100:.2f}',
+                    'credit_cost': credit_cost,
+                    'user_credits': get_user_credits(user['id']) if user else 0,
+                    'results': [],
+                    'count': 0,
+                    'suggestions': []
+                })
+    
+    # Get updated credits after potential deduction
+    remaining_credits = get_user_credits(user['id']) if user else 0
     
     # Search by company number, name, address, or director
     if search_type == 'name':
@@ -761,6 +1338,8 @@ def api_search():
             'count': len(results),
             'suggestions': suggestions,
             'search_type': search_type,
+            'credits_used': credits_used,
+            'remaining_credits': remaining_credits,
             search_key: search_value
         })
     elif search_type == 'address':
@@ -773,6 +1352,8 @@ def api_search():
             'count': len(results),
             'suggestions': suggestions,
             'search_type': search_type,
+            'credits_used': credits_used,
+            'remaining_credits': remaining_credits,
             search_key: search_value
         })
     elif search_type == 'director':
@@ -784,7 +1365,9 @@ def api_search():
                 'results': [],
                 'count': 0,
                 'suggestions': suggestions,
-                'directors_found': []
+                'directors_found': [],
+                'credits_used': credits_used,
+                'remaining_credits': remaining_credits
             })
         return jsonify({
             'success': True,
@@ -793,6 +1376,8 @@ def api_search():
             'suggestions': suggestions,
             'directors_found': directors_found,
             'search_type': search_type,
+            'credits_used': credits_used,
+            'remaining_credits': remaining_credits,
             'director_name': search_value
         })
     else:
@@ -805,6 +1390,8 @@ def api_search():
             'count': len(results),
             'suggestions': suggestions,
             'search_type': search_type,
+            'credits_used': credits_used,
+            'remaining_credits': remaining_credits,
             search_key: search_value
         })
 

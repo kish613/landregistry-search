@@ -220,6 +220,41 @@
             margin-bottom: 20px;
         }
         /* ========== END PRICING STYLES ========== */
+        
+        /* ========== CREDITS STYLES ========== */
+        .credits-display {
+            animation: fadeIn 0.3s ease-out;
+        }
+        .credits-low {
+            border-color: rgba(245, 158, 11, 0.5) !important;
+            background: rgba(245, 158, 11, 0.1) !important;
+        }
+        .credits-low .text-amber-400 {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .credits-notice {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-size: 12px;
+            color: #a7f3d0;
+        }
+        .credit-cost-tag {
+            background: rgba(251, 191, 36, 0.15);
+            border: 1px solid rgba(251, 191, 36, 0.3);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            color: #fbbf24;
+            font-weight: 600;
+            margin-left: 6px;
+        }
+        /* ========== END CREDITS STYLES ========== */
     </style>
 </head>
 <body class="antialiased selection:bg-white/10 selection:text-white overflow-x-hidden text-zinc-400">
@@ -364,7 +399,56 @@
             </div>
 
             <div class="flex items-center gap-4">
-                <a href="/" class="text-xs font-medium text-zinc-400 hover:text-white transition-colors">Back to Home</a>
+                {% if user %}
+                <!-- Logged in user -->
+                <div class="flex items-center gap-3">
+                    {% if user.is_unlimited %}
+                    <div class="credits-display flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-900/30 border border-emerald-500/30">
+                        <iconify-icon icon="solar:infinity-linear" width="16" class="text-emerald-400"></iconify-icon>
+                        <span class="text-sm font-medium text-emerald-400">Unlimited</span>
+                    </div>
+                    {% else %}
+                    <div class="credits-display flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900/80 border border-white/10">
+                        <iconify-icon icon="solar:star-bold" width="14" class="text-amber-400"></iconify-icon>
+                        <span class="text-sm font-medium text-white" id="userCredits">{{ user.credits }}</span>
+                        <span class="text-xs text-zinc-500">credits</span>
+                    </div>
+                    {% endif %}
+                    <div class="relative group">
+                        <button class="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-zinc-800 transition-colors">
+                            <iconify-icon icon="solar:user-circle-linear" width="18" class="text-zinc-400"></iconify-icon>
+                            <span class="text-xs text-zinc-400 hidden sm:inline">{{ user.email }}</span>
+                            <iconify-icon icon="solar:alt-arrow-down-linear" width="12" class="text-zinc-600"></iconify-icon>
+                        </button>
+                        <div class="hidden group-hover:block absolute right-0 top-full mt-2 w-48 glass-dropdown rounded-xl py-2 z-50">
+                            <div class="px-4 py-2 border-b border-white/5">
+                                <div class="text-xs text-zinc-500">Signed in as</div>
+                                <div class="text-sm text-white truncate">{{ user.email }}</div>
+                            </div>
+                            <div class="px-4 py-2 border-b border-white/5">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-zinc-500">Credits</span>
+                                    <span class="text-sm font-medium text-amber-400" id="userCreditsDropdown">{{ user.credits }}</span>
+                                </div>
+                            </div>
+                            <button onclick="logout()" class="w-full text-left px-4 py-2 text-sm text-zinc-400 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2">
+                                <iconify-icon icon="solar:logout-2-linear" width="16"></iconify-icon>
+                                Sign Out
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <!-- Not logged in -->
+                <a href="/auth" class="text-xs font-medium text-zinc-400 hover:text-white transition-colors flex items-center gap-1">
+                    <iconify-icon icon="solar:login-2-linear" width="14"></iconify-icon>
+                    Sign In
+                </a>
+                <a href="/auth" class="uppercase hover:bg-zinc-200 transition-all duration-300 cursor-pointer text-[10px] font-semibold text-black tracking-widest bg-white rounded-lg px-3 py-2 flex items-center gap-1">
+                    <iconify-icon icon="solar:gift-linear" width="12"></iconify-icon>
+                    Get 10 Free
+                </a>
+                {% endif %}
             </div>
         </div>
     </nav>
@@ -403,35 +487,82 @@
             <!-- Search Panel -->
             <div class="glass-panel rounded-2xl p-8 mb-8">
                 <form id="searchForm">
-                    <!-- Pricing Notice -->
-                    <div class="pricing-notice mb-6">
-                        <iconify-icon icon="solar:shield-check-linear" width="16"></iconify-icon>
-                        <span>Standard searches: <strong>£1</strong> | Director searches: <strong>£3</strong> — Secure payment via Stripe</span>
+                    <!-- Pricing Notice - Different for logged in vs anonymous users -->
+                    {% if user %}
+                    {% if user.is_unlimited %}
+                    <div class="credits-notice mb-6" style="background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.3);">
+                        <div class="flex items-center gap-2">
+                            <iconify-icon icon="solar:infinity-linear" width="18" class="text-emerald-400"></iconify-icon>
+                            <span class="text-emerald-300">You have <strong>unlimited</strong> access — search as much as you like!</span>
+                        </div>
                     </div>
+                    {% else %}
+                    <div class="credits-notice mb-6" id="creditsNotice">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <iconify-icon icon="solar:star-bold" width="16" class="text-emerald-400"></iconify-icon>
+                                <span>You have <strong id="creditsDisplay">{{ user.credits }}</strong> credits</span>
+                            </div>
+                            <div class="text-zinc-500 text-[10px]">
+                                Standard: 1 credit | Director: 3 credits
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% else %}
+                    <div class="pricing-notice mb-6">
+                        <iconify-icon icon="solar:gift-linear" width="16" class="text-emerald-400"></iconify-icon>
+                        <span><a href="/auth" class="underline hover:text-white">Sign up free</a> for <strong>10 free credits</strong> — or pay per search: <strong>£1</strong> standard | <strong>£3</strong> director</span>
+                    </div>
+                    {% endif %}
 
                     <!-- Search Type Selector -->
                     <div class="mb-6">
                         <label class="block text-[10px] uppercase tracking-widest text-zinc-500 mb-3">Search Type</label>
                         <div class="flex flex-wrap gap-2">
-                            <button type="button" class="search-type-btn active px-4 py-2 rounded-lg text-xs font-medium transition-all" data-type="name" data-price="100">
+                            <button type="button" class="search-type-btn active px-4 py-2 rounded-lg text-xs font-medium transition-all" data-type="name" data-price="100" data-credits="1">
                                 <iconify-icon icon="solar:buildings-2-linear" class="mr-1.5"></iconify-icon>
                                 Company Name
+                                {% if user and user.is_unlimited %}
+                                <!-- No tag for unlimited users -->
+                                {% elif user %}
+                                <span class="credit-cost-tag">1 credit</span>
+                                {% else %}
                                 <span class="price-tag">£1</span>
+                                {% endif %}
                             </button>
-                            <button type="button" class="search-type-btn px-4 py-2 rounded-lg text-xs font-medium transition-all" data-type="number" data-price="100">
+                            <button type="button" class="search-type-btn px-4 py-2 rounded-lg text-xs font-medium transition-all" data-type="number" data-price="100" data-credits="1">
                                 <iconify-icon icon="solar:hashtag-linear" class="mr-1.5"></iconify-icon>
                                 Company Number
+                                {% if user and user.is_unlimited %}
+                                <!-- No tag for unlimited users -->
+                                {% elif user %}
+                                <span class="credit-cost-tag">1 credit</span>
+                                {% else %}
                                 <span class="price-tag">£1</span>
+                                {% endif %}
                             </button>
-                            <button type="button" class="search-type-btn px-4 py-2 rounded-lg text-xs font-medium transition-all" data-type="director" data-price="300">
+                            <button type="button" class="search-type-btn px-4 py-2 rounded-lg text-xs font-medium transition-all" data-type="director" data-price="300" data-credits="3">
                                 <iconify-icon icon="solar:user-bold" class="mr-1.5"></iconify-icon>
                                 Director Name
+                                {% if user and user.is_unlimited %}
+                                <!-- No tag for unlimited users -->
+                                {% elif user %}
+                                <span class="credit-cost-tag">3 credits</span>
+                                {% else %}
                                 <span class="price-tag">£3</span>
+                                {% endif %}
                             </button>
-                            <button type="button" class="search-type-btn px-4 py-2 rounded-lg text-xs font-medium transition-all" data-type="address" data-price="100">
+                            <button type="button" class="search-type-btn px-4 py-2 rounded-lg text-xs font-medium transition-all" data-type="address" data-price="100" data-credits="1">
                                 <iconify-icon icon="solar:map-point-linear" class="mr-1.5"></iconify-icon>
                                 Address
+                                {% if user and user.is_unlimited %}
+                                <!-- No tag for unlimited users -->
+                                {% elif user %}
+                                <span class="credit-cost-tag">1 credit</span>
+                                {% else %}
                                 <span class="price-tag">£1</span>
+                                {% endif %}
                             </button>
                         </div>
                     </div>
@@ -458,7 +589,15 @@
                     <button type="submit" id="searchBtn" class="w-full bg-white text-black rounded-xl px-6 py-4 flex items-center justify-center gap-3 hover:bg-zinc-200 transition-all font-semibold text-sm uppercase tracking-wider">
                         <iconify-icon id="btnIcon" icon="solar:magnifer-linear" width="16"></iconify-icon>
                         <span id="btnText">Search Registry</span>
+                        {% if user %}
+                            {% if user.is_unlimited %}
+                            <span id="btnCredits" class="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-md text-xs font-bold">Free</span>
+                            {% else %}
+                            <span id="btnCredits" class="bg-amber-100 text-amber-700 px-3 py-1 rounded-md text-xs font-bold">1 credit</span>
+                            {% endif %}
+                        {% else %}
                         <span id="btnPrice" class="price-tag-large">£1.00</span>
+                        {% endif %}
                         <iconify-icon id="btnSpinner" icon="svg-spinners:ring-resize" width="16" class="hidden"></iconify-icon>
                     </button>
                 </form>
@@ -572,10 +711,67 @@
             director: 300   // £3
         };
 
+        // Credit costs
+        const CREDIT_COSTS = {
+            name: 1,
+            number: 1,
+            address: 1,
+            director: 3
+        };
+
+        // User state from server
+        const isLoggedIn = {{ 'true' if user else 'false' }};
+        const isUnlimited = {{ 'true' if user and user.is_unlimited else 'false' }};
+        let userCredits = {{ user.credits if user else 0 }};
+
         // State
         let currentSearchType = 'name';
         let lastSearchType = 'name';
         let lastSearchValue = '';
+
+        // Logout function
+        async function logout() {
+            try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+                window.location.href = '/search';
+            } catch (error) {
+                console.error('Logout failed:', error);
+            }
+        }
+
+        // Update credits display
+        function updateCreditsDisplay(credits) {
+            userCredits = credits;
+            const creditsDisplay = document.getElementById('creditsDisplay');
+            const userCreditsEl = document.getElementById('userCredits');
+            const userCreditsDropdown = document.getElementById('userCreditsDropdown');
+            const creditsNotice = document.getElementById('creditsNotice');
+            
+            if (creditsDisplay) creditsDisplay.textContent = credits;
+            if (userCreditsEl) userCreditsEl.textContent = credits;
+            if (userCreditsDropdown) userCreditsDropdown.textContent = credits;
+            
+            // Update visual style if credits are low
+            const creditsDisplayContainer = document.querySelector('.credits-display');
+            if (creditsDisplayContainer) {
+                if (credits <= 3) {
+                    creditsDisplayContainer.classList.add('credits-low');
+                } else {
+                    creditsDisplayContainer.classList.remove('credits-low');
+                }
+            }
+            
+            // Update notice style
+            if (creditsNotice) {
+                if (credits <= 3) {
+                    creditsNotice.style.borderColor = 'rgba(245, 158, 11, 0.3)';
+                    creditsNotice.style.background = 'rgba(245, 158, 11, 0.1)';
+                } else {
+                    creditsNotice.style.borderColor = '';
+                    creditsNotice.style.background = '';
+                }
+            }
+        }
 
         // DOM Elements
         const searchForm = document.getElementById('searchForm');
@@ -610,10 +806,32 @@
             return `£${(pricePence / 100).toFixed(2)}`;
         }
 
-        // Update button price display
+        // Update button price/credits display
         function updateButtonPrice() {
             const pricePence = SEARCH_PRICES[currentSearchType] || 100;
-            btnPrice.textContent = formatPrice(pricePence);
+            const creditCost = CREDIT_COSTS[currentSearchType] || 1;
+            
+            if (isLoggedIn) {
+                const btnCredits = document.getElementById('btnCredits');
+                if (btnCredits) {
+                    if (isUnlimited) {
+                        // Unlimited users see a "Free" badge
+                        btnCredits.textContent = 'Free';
+                        btnCredits.className = 'bg-emerald-100 text-emerald-700 px-3 py-1 rounded-md text-xs font-bold';
+                    } else {
+                        btnCredits.textContent = `${creditCost} credit${creditCost > 1 ? 's' : ''}`;
+                        
+                        // Change color if user doesn't have enough credits
+                        if (userCredits < creditCost) {
+                            btnCredits.className = 'bg-red-100 text-red-700 px-3 py-1 rounded-md text-xs font-bold';
+                        } else {
+                            btnCredits.className = 'bg-amber-100 text-amber-700 px-3 py-1 rounded-md text-xs font-bold';
+                        }
+                    }
+                }
+            } else {
+                if (btnPrice) btnPrice.textContent = formatPrice(pricePence);
+            }
         }
 
         // Search type button styles
@@ -654,7 +872,7 @@
             });
         });
 
-        // Form submission - redirect to Stripe checkout
+        // Form submission - use credits if logged in, otherwise redirect to Stripe checkout
         searchForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const searchValue = searchInput.value.trim();
@@ -664,8 +882,109 @@
             lastSearchType = currentSearchType;
             lastSearchValue = searchValue;
             
-            await initiateCheckout(currentSearchType, searchValue);
+            const creditCost = CREDIT_COSTS[currentSearchType] || 1;
+            
+            // Unlimited users can always search
+            if (isLoggedIn && isUnlimited) {
+                await executeSearchWithCredits(currentSearchType, searchValue);
+            }
+            // If logged in and has enough credits, search directly
+            else if (isLoggedIn && userCredits >= creditCost) {
+                await executeSearchWithCredits(currentSearchType, searchValue);
+            } else if (isLoggedIn && userCredits < creditCost) {
+                // Show option to pay or prompt for more credits
+                showInsufficientCreditsMessage(creditCost);
+            } else {
+                // Not logged in - use Stripe checkout
+                await initiateCheckout(currentSearchType, searchValue);
+            }
         });
+        
+        // Show insufficient credits message
+        function showInsufficientCreditsMessage(creditCost) {
+            hideAllMessages();
+            errorMessage.classList.remove('hidden');
+            errorText.innerHTML = `
+                You need ${creditCost} credit${creditCost > 1 ? 's' : ''} for this search but only have ${userCredits}.
+                <br><br>
+                <button onclick="initiateCheckout('${currentSearchType}', searchInput.value.trim())" class="underline hover:no-underline">Pay £${(SEARCH_PRICES[currentSearchType] / 100).toFixed(2)} for this search</button>
+            `;
+        }
+        
+        // Execute search using credits
+        async function executeSearchWithCredits(searchType, searchValue) {
+            // Show loading state
+            btnText.textContent = searchType === 'director' ? 'Searching Companies House...' : 'Searching...';
+            btnIcon.classList.add('hidden');
+            const btnCredits = document.getElementById('btnCredits');
+            const btnPriceEl = document.getElementById('btnPrice');
+            if (btnCredits) btnCredits.classList.add('hidden');
+            if (btnPriceEl) btnPriceEl.classList.add('hidden');
+            btnSpinner.classList.remove('hidden');
+            searchBtn.disabled = true;
+            
+            // Hide previous results
+            hideAllMessages();
+
+            try {
+                const response = await fetch('/api/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        search_type: searchType,
+                        search_value: searchValue,
+                        use_credits: true
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Update credits display
+                    if (data.remaining_credits !== undefined) {
+                        updateCreditsDisplay(data.remaining_credits);
+                    }
+                    
+                    // For director searches, display found directors/companies first
+                    if (searchType === 'director' && data.directors_found && data.directors_found.length > 0) {
+                        displayDirectors(data.directors_found, searchValue);
+                    }
+                    
+                    if (data.results && data.results.length > 0) {
+                        displayResults(data.results, searchType, searchValue);
+                    } else if (data.suggestions && data.suggestions.length > 0) {
+                        displaySuggestions(data.suggestions);
+                        noResultsText.textContent = searchType === 'director' 
+                            ? 'No properties found for companies linked to matching directors. Try these company names instead:'
+                            : 'No properties found matching your search criteria.';
+                        noResults.classList.remove('hidden');
+                    } else {
+                        noResultsText.textContent = searchType === 'director'
+                            ? 'No directors found matching this name, or their companies do not own properties in our database.'
+                            : 'No properties found matching your search criteria.';
+                        noResults.classList.remove('hidden');
+                    }
+                } else {
+                    // Handle errors
+                    if (data.payment_required) {
+                        showError(data.error || 'Insufficient credits. Please pay for this search.');
+                        if (data.user_credits !== undefined) {
+                            updateCreditsDisplay(data.user_credits);
+                        }
+                    } else {
+                        showError(data.error || 'An error occurred');
+                    }
+                    // Still show suggestions if available
+                    if (data.suggestions && data.suggestions.length > 0) {
+                        displaySuggestions(data.suggestions);
+                    }
+                }
+            } catch (error) {
+                showError('Failed to connect to the server. Please try again.');
+            } finally {
+                resetButtonState();
+            }
+        }
 
         // Initiate Stripe Checkout
         async function initiateCheckout(searchType, searchValue) {
@@ -794,7 +1113,10 @@
         function resetButtonState() {
             btnText.textContent = 'Search Registry';
             btnIcon.classList.remove('hidden');
-            btnPrice.classList.remove('hidden');
+            const btnCredits = document.getElementById('btnCredits');
+            const btnPriceEl = document.getElementById('btnPrice');
+            if (btnCredits) btnCredits.classList.remove('hidden');
+            if (btnPriceEl) btnPriceEl.classList.remove('hidden');
             btnSpinner.classList.add('hidden');
             searchBtn.disabled = false;
             updateButtonPrice();
