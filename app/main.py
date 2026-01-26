@@ -26,11 +26,14 @@ load_dotenv('env.local')
 
 app = Flask(__name__)
 
-# Secret key for session management - MUST be set in production
+# Secret key for session management
 _secret_key = os.environ.get('SECRET_KEY')
 if not _secret_key:
-    _secret_key = 'dev-fallback-key-change-in-production-12345'
-    print("WARNING: SECRET_KEY not set! Using fallback. Set SECRET_KEY in production!")
+    if os.environ.get('FLASK_ENV') == 'production':
+        raise RuntimeError("SECRET_KEY environment variable must be set in production!")
+    # Development only: generate random key (sessions won't persist across restarts)
+    _secret_key = secrets.token_hex(32)
+    print("WARNING: SECRET_KEY not set. Using random key (sessions won't persist across restarts).")
 app.secret_key = _secret_key
 app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
