@@ -1011,8 +1011,11 @@ def api_register():
         
         # Send magic link
         token = create_magic_link(user_id)
-        if token:
-            send_magic_link_email(email, token)
+        if not token:
+            return jsonify({'success': False, 'error': 'Failed to create login link. Please try again.'}), 500
+        
+        if not send_magic_link_email(email, token):
+            return jsonify({'success': False, 'error': 'Failed to send email. Please try again or use password.'}), 500
         
         return jsonify({
             'success': True,
