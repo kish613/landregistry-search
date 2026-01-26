@@ -28,16 +28,15 @@ app = Flask(__name__)
 
 # Secret key for session management
 _secret_key = os.environ.get('SECRET_KEY')
+_is_production = os.environ.get('FLASK_ENV') == 'production'
 if not _secret_key:
-    # Detect production: DATABASE_URL set (deployed) or FLASK_ENV explicitly set to production
-    _is_production = os.environ.get('DATABASE_URL') or os.environ.get('FLASK_ENV') == 'production'
     if _is_production:
-        raise RuntimeError("SECRET_KEY environment variable must be set in production!")
-    # Local development only: generate random key (sessions won't persist across restarts)
+        raise RuntimeError("SECRET_KEY environment variable must be set in production (FLASK_ENV=production)!")
+    # Development only: generate random key (sessions won't persist across restarts)
     _secret_key = secrets.token_hex(32)
     print("WARNING: SECRET_KEY not set. Using random key (sessions won't persist across restarts).")
 app.secret_key = _secret_key
-app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
+app.config['SESSION_COOKIE_SECURE'] = _is_production
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
