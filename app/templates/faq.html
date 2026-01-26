@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Frequently asked questions about UK land registry searches, CCOD data, company property ownership lookup, and how to use our search tool.">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://ccod-property-lookup.vercel.app/faq">
+    <meta property="og:title" content="FAQ - UK Land Registry Search">
+    <meta property="og:description" content="Frequently asked questions about UK land registry searches and CCOD data.">
+    <meta property="og:site_name" content="UK Land Registry Search">
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://ccod-property-lookup.vercel.app/faq">
+    <meta name="twitter:title" content="FAQ - UK Land Registry Search">
+    <meta name="twitter:description" content="Frequently asked questions about UK land registry searches and CCOD data.">
+    
+    <title>FAQ - UK Land Registry Search | Common Questions</title>
+    <link rel="canonical" href="https://ccod-property-lookup.vercel.app/faq">
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+    <link rel="alternate icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.svg') }}">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Geist', system-ui, sans-serif;
+            background-color: #09090b;
+        }
+        h1, h2, h3, h4 {
+            font-family: 'Geist', system-ui, sans-serif;
+        }
+        .glass-panel {
+            background: rgba(24, 24, 27, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
+    </style>
+    
+    <!-- FAQ Schema Markup -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is this land registry search tool free?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The tool offers both free and paid options. New users receive 10 free credits when they sign up. Standard searches (company name, number, address) cost 1 credit or £1 per search. Director searches cost 3 credits or £3 per search."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What is CCOD data?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "CCOD stands for Commercial and Corporate Ownership Data. It's an official dataset published by HM Land Registry containing information about all registered freehold and leasehold property in England and Wales owned by UK and overseas companies and corporate bodies."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I search for properties owned by a company?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "You can search by company name (with fuzzy matching), company registration number, director name, or property address. Simply enter your search term, select the search type, and click Search. Results include property addresses, title numbers, tenure types, and proprietor information."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I export the search results?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, you can export search results in both CSV and JSON formats for further analysis or integration with other tools. Export options appear after you perform a search."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How often is the data updated?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The CCOD dataset from HM Land Registry is updated monthly. We refresh our database regularly to ensure you have access to the most current information available."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What areas does this cover?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "This tool covers England and Wales only. Scotland and Northern Ireland have separate land registry systems and are not included in the CCOD dataset."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What is a director search?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "A director search looks up an individual director's name via Companies House API, finds all companies they're associated with, and then searches our database for properties owned by those companies. This is useful for investigating an individual's property interests through their business connections."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Do I need to create an account?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "You can search without an account by paying per search. However, creating a free account gives you 10 free credits and makes it easier to manage multiple searches. Account creation is simple and only requires an email address."
+          }
+        }
+      ]
+    }
+    </script>
+</head>
+<body class="antialiased selection:bg-white/10 selection:text-white overflow-x-hidden text-zinc-400">
+    <!-- Navigation -->
+    <nav class="fixed z-[100] transition-all duration-300 bg-zinc-900/80 w-full border-white/5 border-b top-0 backdrop-blur-xl">
+        <div class="flex h-20 max-w-7xl mx-auto px-6 items-center justify-between">
+            <div class="flex gap-12 items-center">
+                <a href="/" class="flex items-center gap-2 hover:opacity-90 transition-opacity">
+                    <div class="w-10 h-10">
+                        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <linearGradient id="shieldGloss" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#0f2c52;stop-opacity:1" />
+                                    <stop offset="50%" style="stop-color:#1a4d6e;stop-opacity:1" />
+                                    <stop offset="52%" style="stop-color:#2a7a85;stop-opacity:1" />
+                                    <stop offset="100%" style="stop-color:#0f2c52;stop-opacity:1" />
+                                </linearGradient>
+                                <linearGradient id="goldFace" x1="0%" y1="0%" x2="0%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#fce7f3;stop-opacity:1" />
+                                    <stop offset="20%" style="stop-color:#eab308;stop-opacity:1" />
+                                    <stop offset="100%" style="stop-color:#a16207;stop-opacity:1" />
+                                </linearGradient>
+                                <linearGradient id="goldEdge" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#854d0e;stop-opacity:1" />
+                                    <stop offset="100%" style="stop-color:#ca8a04;stop-opacity:1" />
+                                </linearGradient>
+                            </defs>
+                            <g transform="translate(5, 5) scale(0.95)">
+                                <path fill="url(#shieldGloss)" d="M 95,185 C 155,185 180,145 180,105 L 180,55 L 145,55 L 115,25 L 55,25 L 20,60 L 20,105 C 20,145 45,185 95,185 Z"/>
+                                <g>
+                                    <path fill="url(#goldEdge)" d="M 75,120 L 100,145 L 155,80 L 144,70 L 100,122 L 86,108 L 75,120 Z"/>
+                                    <path fill="url(#goldFace)" d="M 77,118 L 100,141 L 151,80 L 142,72 L 100,122 L 86,108 L 77,118 Z" transform="translate(0, -2)"/>
+                                </g>
+                            </g>
+                        </svg>
+                    </div>
+                    <span class="text-base font-bold text-white">landregistry<span class="font-light text-teal-600">.company</span></span>
+                </a>
+
+                <div class="hidden md:flex gap-8 uppercase text-[10px] text-zinc-400 tracking-widest items-center font-medium">
+                    <a href="/search" class="hover:text-white transition-colors duration-300">Registry Search</a>
+                    <a href="/faq" class="text-white transition-colors duration-300">FAQ</a>
+                    <a href="/about" class="hover:text-white transition-colors duration-300">About</a>
+                    <a href="/how-to-search-land-registry" class="hover:text-white transition-colors duration-300">How-To Guide</a>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-4">
+                {% if user %}
+                <a href="/search" class="uppercase hover:bg-zinc-200 transition-all duration-300 cursor-pointer text-[10px] font-semibold text-black tracking-widest bg-white rounded-lg px-4 py-2">
+                    Search
+                </a>
+                {% else %}
+                <a href="/auth" class="text-xs font-medium text-zinc-400 hover:text-white transition-colors">Sign In</a>
+                <a href="/search" class="uppercase hover:bg-zinc-200 transition-all duration-300 cursor-pointer text-[10px] font-semibold text-black tracking-widest bg-white rounded-lg px-4 py-2">
+                    Start Searching
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <header class="bg-zinc-950 w-full pt-32 pb-16 border-b border-white/5">
+        <div class="max-w-4xl mx-auto px-6 text-center">
+            <h1 class="text-4xl md:text-5xl text-white font-medium tracking-tight mb-6">
+                Frequently Asked Questions
+            </h1>
+            <p class="text-zinc-400 text-lg">
+                Everything you need to know about searching UK land registry data
+            </p>
+        </div>
+    </header>
+
+    <!-- FAQ Content -->
+    <section class="bg-zinc-950 py-16">
+        <div class="max-w-4xl mx-auto px-6">
+            <div class="space-y-6">
+                <!-- FAQ Item 1 -->
+                <div class="glass-panel rounded-2xl p-8">
+                    <h2 class="text-xl text-white font-medium mb-4 flex items-center gap-3">
+                        <iconify-icon icon="solar:help-linear" width="24" class="text-emerald-500"></iconify-icon>
+                        Is this land registry search tool free?
+                    </h2>
+                    <p class="text-zinc-400 leading-relaxed">
+                        The tool offers both free and paid options. New users receive <strong>10 free credits</strong> when they sign up. Standard searches (company name, number, address) cost 1 credit or £1 per search. Director searches cost 3 credits or £3 per search. You can search without an account by paying per search, or create a free account to manage credits.
+                    </p>
+                </div>
+
+                <!-- FAQ Item 2 -->
+                <div class="glass-panel rounded-2xl p-8">
+                    <h2 class="text-xl text-white font-medium mb-4 flex items-center gap-3">
+                        <iconify-icon icon="solar:help-linear" width="24" class="text-emerald-500"></iconify-icon>
+                        What is CCOD data?
+                    </h2>
+                    <p class="text-zinc-400 leading-relaxed">
+                        CCOD stands for <strong>Commercial and Corporate Ownership Data</strong>. It's an official dataset published by HM Land Registry containing information about all registered freehold and leasehold property in England and Wales owned by UK and overseas companies and corporate bodies. This dataset includes property addresses, title numbers, tenure information, and details about the corporate proprietors.
+                    </p>
+                </div>
+
+                <!-- FAQ Item 3 -->
+                <div class="glass-panel rounded-2xl p-8">
+                    <h2 class="text-xl text-white font-medium mb-4 flex items-center gap-3">
+                        <iconify-icon icon="solar:help-linear" width="24" class="text-emerald-500"></iconify-icon>
+                        How do I search for properties owned by a company?
+                    </h2>
+                    <p class="text-zinc-400 leading-relaxed mb-4">
+                        You can search using multiple methods:
+                    </p>
+                    <ul class="space-y-2 text-zinc-400">
+                        <li class="flex items-start gap-2">
+                            <iconify-icon icon="solar:check-circle-linear" class="text-emerald-500 mt-1"></iconify-icon>
+                            <span><strong>Company Name:</strong> Enter the company name with fuzzy matching support for variations and typos</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <iconify-icon icon="solar:check-circle-linear" class="text-emerald-500 mt-1"></iconify-icon>
+                            <span><strong>Company Number:</strong> Use the Companies House registration number for exact matches</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <iconify-icon icon="solar:check-circle-linear" class="text-emerald-500 mt-1"></iconify-icon>
+                            <span><strong>Director Name:</strong> Search by director's name to find properties owned by their companies</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <iconify-icon icon="solar:check-circle-linear" class="text-emerald-500 mt-1"></iconify-icon>
+                            <span><strong>Address/Postcode:</strong> Reverse lookup to find who owns a specific property</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- FAQ Item 4 -->
+                <div class="glass-panel rounded-2xl p-8">
+                    <h2 class="text-xl text-white font-medium mb-4 flex items-center gap-3">
+                        <iconify-icon icon="solar:help-linear" width="24" class="text-emerald-500"></iconify-icon>
+                        Can I export the search results?
+                    </h2>
+                    <p class="text-zinc-400 leading-relaxed">
+                        Yes! You can export search results in both <strong>CSV</strong> and <strong>JSON</strong> formats for further analysis or integration with other tools. Export buttons appear after you perform a search with results. The exports include all property details, proprietor information, and company registration numbers.
+                    </p>
+                </div>
+
+                <!-- FAQ Item 5 -->
+                <div class="glass-panel rounded-2xl p-8">
+                    <h2 class="text-xl text-white font-medium mb-4 flex items-center gap-3">
+                        <iconify-icon icon="solar:help-linear" width="24" class="text-emerald-500"></iconify-icon>
+                        How often is the data updated?
+                    </h2>
+                    <p class="text-zinc-400 leading-relaxed">
+                        The CCOD dataset from HM Land Registry is updated <strong>monthly</strong> by the government. We refresh our database regularly to ensure you have access to the most current information available. The dataset includes properties with title numbers registered up to the most recent monthly release.
+                    </p>
+                </div>
+
+                <!-- FAQ Item 6 -->
+                <div class="glass-panel rounded-2xl p-8">
+                    <h2 class="text-xl text-white font-medium mb-4 flex items-center gap-3">
+                        <iconify-icon icon="solar:help-linear" width="24" class="text-emerald-500"></iconify-icon>
+                        What areas does this cover?
+                    </h2>
+                    <p class="text-zinc-400 leading-relaxed">
+                        This tool covers <strong>England and Wales</strong> only. Scotland and Northern Ireland have separate land registry systems (Registers of Scotland and Land & Property Services NI) and are not included in the CCOD dataset. The data includes all registered freehold and leasehold properties owned by corporate entities across England and Wales.
+                    </p>
+                </div>
+
+                <!-- FAQ Item 7 -->
+                <div class="glass-panel rounded-2xl p-8">
+                    <h2 class="text-xl text-white font-medium mb-4 flex items-center gap-3">
+                        <iconify-icon icon="solar:help-linear" width="24" class="text-emerald-500"></iconify-icon>
+                        What is a director search?
+                    </h2>
+                    <p class="text-zinc-400 leading-relaxed">
+                        A director search looks up an individual director's name via the <strong>Companies House API</strong>, finds all companies they're associated with (both current and past appointments), and then searches our database for properties owned by those companies. This is useful for investigating an individual's property interests through their business connections. Director searches cost 3 credits or £3 due to the additional API calls required.
+                    </p>
+                </div>
+
+                <!-- FAQ Item 8 -->
+                <div class="glass-panel rounded-2xl p-8">
+                    <h2 class="text-xl text-white font-medium mb-4 flex items-center gap-3">
+                        <iconify-icon icon="solar:help-linear" width="24" class="text-emerald-500"></iconify-icon>
+                        Do I need to create an account?
+                    </h2>
+                    <p class="text-zinc-400 leading-relaxed">
+                        You can search without an account by paying per search with a credit card. However, creating a <strong>free account</strong> gives you 10 free credits and makes it easier to manage multiple searches. Account creation is simple and only requires an email address. You can sign in with a password or use our passwordless magic link option.
+                    </p>
+                </div>
+
+                <!-- FAQ Item 9 -->
+                <div class="glass-panel rounded-2xl p-8">
+                    <h2 class="text-xl text-white font-medium mb-4 flex items-center gap-3">
+                        <iconify-icon icon="solar:help-linear" width="24" class="text-emerald-500"></iconify-icon>
+                        Who uses this tool?
+                    </h2>
+                    <p class="text-zinc-400 leading-relaxed mb-3">
+                        Our tool is used by a wide range of professionals and researchers:
+                    </p>
+                    <ul class="space-y-2 text-zinc-400">
+                        <li class="flex items-start gap-2">
+                            <iconify-icon icon="solar:check-circle-linear" class="text-emerald-500 mt-1"></iconify-icon>
+                            <span><strong>Legal Firms:</strong> Due diligence and property conveyancing research</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <iconify-icon icon="solar:check-circle-linear" class="text-emerald-500 mt-1"></iconify-icon>
+                            <span><strong>Property Investors:</strong> Portfolio analysis and market research</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <iconify-icon icon="solar:check-circle-linear" class="text-emerald-500 mt-1"></iconify-icon>
+                            <span><strong>Journalists:</strong> Investigative research and transparency reporting</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <iconify-icon icon="solar:check-circle-linear" class="text-emerald-500 mt-1"></iconify-icon>
+                            <span><strong>Estate Agents:</strong> Ownership verification and lead generation</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <iconify-icon icon="solar:check-circle-linear" class="text-emerald-500 mt-1"></iconify-icon>
+                            <span><strong>Researchers:</strong> Academic studies on land ownership and housing</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- FAQ Item 10 -->
+                <div class="glass-panel rounded-2xl p-8">
+                    <h2 class="text-xl text-white font-medium mb-4 flex items-center gap-3">
+                        <iconify-icon icon="solar:help-linear" width="24" class="text-emerald-500"></iconify-icon>
+                        Is my data secure?
+                    </h2>
+                    <p class="text-zinc-400 leading-relaxed">
+                        Yes. We don't store your search queries permanently. Payment processing is handled securely through Stripe. Your email and account information are stored securely and never shared with third parties. We only use official public data from HM Land Registry and Companies House.
+                    </p>
+                </div>
+            </div>
+
+            <!-- CTA Section -->
+            <div class="mt-16 text-center glass-panel rounded-2xl p-12">
+                <h2 class="text-2xl text-white font-medium mb-4">Ready to Search?</h2>
+                <p class="text-zinc-400 mb-6">Start exploring UK corporate land ownership data now</p>
+                <a href="/search" class="inline-flex items-center gap-3 bg-white text-black rounded-full px-8 py-4 hover:bg-zinc-200 transition-all font-semibold text-sm uppercase tracking-wider">
+                    <iconify-icon icon="solar:magnifer-linear" width="18"></iconify-icon>
+                    Search Registry
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="text-sm font-light text-zinc-500 bg-zinc-950 border-white/5 border-t pt-12 pb-12">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] uppercase tracking-widest">
+                <div class="flex items-center gap-2">
+                    <iconify-icon icon="solar:buildings-2-linear"></iconify-icon>
+                    <span>LandRegistry.company</span>
+                </div>
+                <p>© 2026 Data sourced from HM Land Registry under Open Government Licence.</p>
+                <div class="flex gap-4">
+                    <a href="/faq" class="hover:text-white transition-colors">FAQ</a>
+                    <a href="/about" class="hover:text-white transition-colors">About</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

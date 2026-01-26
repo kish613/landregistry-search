@@ -55,6 +55,9 @@ EMAIL_FROM = os.environ.get('EMAIL_FROM', 'noreply@landregistry.company')
 # Base URL for links in emails
 BASE_URL = os.environ.get('BASE_URL', 'http://localhost:5000')
 
+# Google Analytics 4 Measurement ID (optional)
+app.config['GA4_MEASUREMENT_ID'] = os.environ.get('GA4_MEASUREMENT_ID')
+
 # Credit costs for different search types
 CREDIT_COSTS = {
     'name': 1,      # 1 credit for company name search
@@ -960,6 +963,27 @@ def auth_page():
     if get_current_user():
         return redirect(url_for('search'))
     return render_template('auth.html')
+
+
+@app.route('/faq')
+def faq():
+    """FAQ page"""
+    user = get_current_user()
+    return render_template('faq.html', user=user)
+
+
+@app.route('/about')
+def about():
+    """About page"""
+    user = get_current_user()
+    return render_template('about.html', user=user)
+
+
+@app.route('/how-to-search-land-registry')
+def how_to():
+    """How-to guide page"""
+    user = get_current_user()
+    return render_template('how-to.html', user=user)
 
 
 @app.route('/auth/verify')

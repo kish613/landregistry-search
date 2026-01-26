@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://ccod-property-lookup.vercel.app/sitemap.xml

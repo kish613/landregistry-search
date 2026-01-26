@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="About UK Land Registry Search - Learn about our corporate property ownership search tool, data sources from HM Land Registry CCOD, and our mission to make land ownership data accessible.">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://ccod-property-lookup.vercel.app/about">
+    <meta property="og:title" content="About - UK Land Registry Search">
+    <meta property="og:description" content="Learn about our corporate property ownership search tool and data sources from HM Land Registry.">
+    <meta property="og:site_name" content="UK Land Registry Search">
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://ccod-property-lookup.vercel.app/about">
+    <meta name="twitter:title" content="About - UK Land Registry Search">
+    <meta name="twitter:description" content="Learn about our corporate property ownership search tool and data sources from HM Land Registry.">
+    
+    <title>About - UK Land Registry Search | Our Mission & Data Sources</title>
+    <link rel="canonical" href="https://ccod-property-lookup.vercel.app/about">
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+    <link rel="alternate icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.svg') }}">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Geist', system-ui, sans-serif;
+            background-color: #09090b;
+        }
+        h1, h2, h3, h4 {
+            font-family: 'Geist', system-ui, sans-serif;
+        }
+        .glass-panel {
+            background: rgba(24, 24, 27, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
+    </style>
+    
+    <!-- Organization Schema Markup -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "UK Land Registry Search",
+      "url": "https://ccod-property-lookup.vercel.app",
+      "description": "Search tool for UK corporate land ownership using official HM Land Registry CCOD data",
+      "foundingDate": "2026",
+      "areaServed": {
+        "@type": "Place",
+        "name": "England and Wales"
+      }
+    }
+    </script>
+</head>
+<body class="antialiased selection:bg-white/10 selection:text-white overflow-x-hidden text-zinc-400">
+    <!-- Navigation -->
+    <nav class="fixed z-[100] transition-all duration-300 bg-zinc-900/80 w-full border-white/5 border-b top-0 backdrop-blur-xl">
+        <div class="flex h-20 max-w-7xl mx-auto px-6 items-center justify-between">
+            <div class="flex gap-12 items-center">
+                <a href="/" class="flex items-center gap-2 hover:opacity-90 transition-opacity">
+                    <div class="w-10 h-10">
+                        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <linearGradient id="shieldGloss" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#0f2c52;stop-opacity:1" />
+                                    <stop offset="50%" style="stop-color:#1a4d6e;stop-opacity:1" />
+                                    <stop offset="52%" style="stop-color:#2a7a85;stop-opacity:1" />
+                                    <stop offset="100%" style="stop-color:#0f2c52;stop-opacity:1" />
+                                </linearGradient>
+                                <linearGradient id="goldFace" x1="0%" y1="0%" x2="0%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#fce7f3;stop-opacity:1" />
+                                    <stop offset="20%" style="stop-color:#eab308;stop-opacity:1" />
+                                    <stop offset="100%" style="stop-color:#a16207;stop-opacity:1" />
+                                </linearGradient>
+                                <linearGradient id="goldEdge" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#854d0e;stop-opacity:1" />
+                                    <stop offset="100%" style="stop-color:#ca8a04;stop-opacity:1" />
+                                </linearGradient>
+                            </defs>
+                            <g transform="translate(5, 5) scale(0.95)">
+                                <path fill="url(#shieldGloss)" d="M 95,185 C 155,185 180,145 180,105 L 180,55 L 145,55 L 115,25 L 55,25 L 20,60 L 20,105 C 20,145 45,185 95,185 Z"/>
+                                <g>
+                                    <path fill="url(#goldEdge)" d="M 75,120 L 100,145 L 155,80 L 144,70 L 100,122 L 86,108 L 75,120 Z"/>
+                                    <path fill="url(#goldFace)" d="M 77,118 L 100,141 L 151,80 L 142,72 L 100,122 L 86,108 L 77,118 Z" transform="translate(0, -2)"/>
+                                </g>
+                            </g>
+                        </svg>
+                    </div>
+                    <span class="text-base font-bold text-white">landregistry<span class="font-light text-teal-600">.company</span></span>
+                </a>
+
+                <div class="hidden md:flex gap-8 uppercase text-[10px] text-zinc-400 tracking-widest items-center font-medium">
+                    <a href="/search" class="hover:text-white transition-colors duration-300">Registry Search</a>
+                    <a href="/faq" class="hover:text-white transition-colors duration-300">FAQ</a>
+                    <a href="/about" class="text-white transition-colors duration-300">About</a>
+                    <a href="/how-to-search-land-registry" class="hover:text-white transition-colors duration-300">How-To Guide</a>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-4">
+                {% if user %}
+                <a href="/search" class="uppercase hover:bg-zinc-200 transition-all duration-300 cursor-pointer text-[10px] font-semibold text-black tracking-widest bg-white rounded-lg px-4 py-2">
+                    Search
+                </a>
+                {% else %}
+                <a href="/auth" class="text-xs font-medium text-zinc-400 hover:text-white transition-colors">Sign In</a>
+                <a href="/search" class="uppercase hover:bg-zinc-200 transition-all duration-300 cursor-pointer text-[10px] font-semibold text-black tracking-widest bg-white rounded-lg px-4 py-2">
+                    Start Searching
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <header class="bg-zinc-950 w-full pt-32 pb-16 border-b border-white/5">
+        <div class="max-w-4xl mx-auto px-6 text-center">
+            <h1 class="text-4xl md:text-5xl text-white font-medium tracking-tight mb-6">
+                About UK Land Registry Search
+            </h1>
+            <p class="text-zinc-400 text-lg">
+                Making corporate land ownership data accessible to everyone
+            </p>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <section class="bg-zinc-950 py-16">
+        <div class="max-w-4xl mx-auto px-6">
+            <!-- Our Mission -->
+            <div class="glass-panel rounded-2xl p-10 mb-8">
+                <h2 class="text-2xl text-white font-medium mb-6 flex items-center gap-3">
+                    <iconify-icon icon="solar:target-linear" width="28" class="text-emerald-500"></iconify-icon>
+                    Our Mission
+                </h2>
+                <p class="text-zinc-400 leading-relaxed text-lg mb-4">
+                    We believe that information about land ownership should be accessible to everyone. Our tool democratizes access to UK corporate property ownership data, making it easy for professionals, researchers, journalists, and the public to understand who owns land and property across England and Wales.
+                </p>
+                <p class="text-zinc-400 leading-relaxed">
+                    By providing a fast, intuitive interface to search official government data, we're helping increase transparency in the UK property market and supporting informed decision-making for businesses, legal professionals, and citizens.
+                </p>
+            </div>
+
+            <!-- What is CCOD Data -->
+            <div class="glass-panel rounded-2xl p-10 mb-8">
+                <h2 class="text-2xl text-white font-medium mb-6 flex items-center gap-3">
+                    <iconify-icon icon="solar:database-linear" width="28" class="text-emerald-500"></iconify-icon>
+                    Understanding CCOD Data
+                </h2>
+                <p class="text-zinc-400 leading-relaxed mb-4">
+                    <strong class="text-white">CCOD</strong> (Commercial and Corporate Ownership Data) is an official dataset published by <strong class="text-white">HM Land Registry</strong> under the Open Government Licence. It contains comprehensive information about freehold and leasehold properties in England and Wales owned by:
+                </p>
+                <ul class="space-y-3 text-zinc-400 mb-6">
+                    <li class="flex items-start gap-3">
+                        <iconify-icon icon="solar:check-circle-linear" class="text-emerald-500 mt-1 flex-shrink-0"></iconify-icon>
+                        <span>UK companies registered with Companies House</span>
+                    </li>
+                    <li class="flex items-start gap-3">
+                        <iconify-icon icon="solar:check-circle-linear" class="text-emerald-500 mt-1 flex-shrink-0"></iconify-icon>
+                        <span>Overseas companies that own property in the UK</span>
+                    </li>
+                    <li class="flex items-start gap-3">
+                        <iconify-icon icon="solar:check-circle-linear" class="text-emerald-500 mt-1 flex-shrink-0"></iconify-icon>
+                        <span>Corporate bodies and other legal entities</span>
+                    </li>
+                </ul>
+                <p class="text-zinc-400 leading-relaxed">
+                    The dataset includes over <strong class="text-white">3.8 million property records</strong> and is updated monthly by HM Land Registry. Each record contains property addresses, title numbers, tenure information, price paid (where available), and details about the corporate proprietor.
+                </p>
+            </div>
+
+            <!-- Our Data Sources -->
+            <div class="glass-panel rounded-2xl p-10 mb-8">
+                <h2 class="text-2xl text-white font-medium mb-6 flex items-center gap-3">
+                    <iconify-icon icon="solar:document-text-linear" width="28" class="text-emerald-500"></iconify-icon>
+                    Official Data Sources
+                </h2>
+                <div class="space-y-6">
+                    <div class="flex items-start gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                            <iconify-icon icon="solar:buildings-3-linear" width="24" class="text-emerald-400"></iconify-icon>
+                        </div>
+                        <div>
+                            <h3 class="text-white font-medium mb-2">HM Land Registry</h3>
+                            <p class="text-zinc-400 text-sm leading-relaxed">
+                                The official government body responsible for registering land and property ownership in England and Wales. We use their official CCOD dataset, which is published under the Open Government Licence and updated monthly.
+                            </p>
+                            <a href="https://www.gov.uk/government/organisations/land-registry" target="_blank" rel="noopener" class="text-emerald-400 hover:text-emerald-300 text-sm mt-2 inline-flex items-center gap-1">
+                                Visit HM Land Registry
+                                <iconify-icon icon="solar:arrow-right-up-linear" width="14"></iconify-icon>
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                            <iconify-icon icon="solar:document-linear" width="24" class="text-emerald-400"></iconify-icon>
+                        </div>
+                        <div>
+                            <h3 class="text-white font-medium mb-2">Companies House</h3>
+                            <p class="text-zinc-400 text-sm leading-relaxed">
+                                For director searches, we query the Companies House API to find company appointments and officer information. This allows us to trace property ownership through individual directors and their business interests.
+                            </p>
+                            <a href="https://www.gov.uk/government/organisations/companies-house" target="_blank" rel="noopener" class="text-emerald-400 hover:text-emerald-300 text-sm mt-2 inline-flex items-center gap-1">
+                                Visit Companies House
+                                <iconify-icon icon="solar:arrow-right-up-linear" width="14"></iconify-icon>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Key Features -->
+            <div class="glass-panel rounded-2xl p-10 mb-8">
+                <h2 class="text-2xl text-white font-medium mb-6 flex items-center gap-3">
+                    <iconify-icon icon="solar:star-linear" width="28" class="text-emerald-500"></iconify-icon>
+                    What Makes Us Different
+                </h2>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-2 text-white font-medium">
+                            <iconify-icon icon="solar:lightning-linear" class="text-emerald-500"></iconify-icon>
+                            Fast & Intuitive
+                        </div>
+                        <p class="text-zinc-400 text-sm">
+                            Instant search results with an easy-to-use interface designed for both professionals and casual users.
+                        </p>
+                    </div>
+
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-2 text-white font-medium">
+                            <iconify-icon icon="solar:shield-check-linear" class="text-emerald-500"></iconify-icon>
+                            Official Data Only
+                        </div>
+                        <p class="text-zinc-400 text-sm">
+                            We use only verified government data from HM Land Registry and Companies House - no third-party sources.
+                        </p>
+                    </div>
+
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-2 text-white font-medium">
+                            <iconify-icon icon="solar:export-linear" class="text-emerald-500"></iconify-icon>
+                            Export Capabilities
+                        </div>
+                        <p class="text-zinc-400 text-sm">
+                            Download results in CSV or JSON format for analysis, reporting, or integration with your systems.
+                        </p>
+                    </div>
+
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-2 text-white font-medium">
+                            <iconify-icon icon="solar:money-linear" class="text-emerald-500"></iconify-icon>
+                            Affordable Access
+                        </div>
+                        <p class="text-zinc-400 text-sm">
+                            From just £1 per search, or 10 free credits when you sign up. No monthly subscriptions required.
+                        </p>
+                    </div>
+
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-2 text-white font-medium">
+                            <iconify-icon icon="solar:user-check-linear" class="text-emerald-500"></iconify-icon>
+                            Director Search
+                        </div>
+                        <p class="text-zinc-400 text-sm">
+                            Unique ability to search by director name, tracing property ownership through business connections.
+                        </p>
+                    </div>
+
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-2 text-white font-medium">
+                            <iconify-icon icon="solar:refresh-linear" class="text-emerald-500"></iconify-icon>
+                            Regular Updates
+                        </div>
+                        <p class="text-zinc-400 text-sm">
+                            Database refreshed monthly to match HM Land Registry's official CCOD release schedule.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Who Uses This Tool -->
+            <div class="glass-panel rounded-2xl p-10 mb-8">
+                <h2 class="text-2xl text-white font-medium mb-6 flex items-center gap-3">
+                    <iconify-icon icon="solar:users-group-rounded-linear" width="28" class="text-emerald-500"></iconify-icon>
+                    Who Uses Our Tool
+                </h2>
+                <p class="text-zinc-400 leading-relaxed mb-6">
+                    Our search tool serves a diverse range of users across multiple sectors:
+                </p>
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div class="p-4 rounded-xl bg-zinc-900/50 border border-white/5">
+                        <div class="flex items-center gap-3 mb-2">
+                            <iconify-icon icon="solar:scale-linear" width="20" class="text-emerald-400"></iconify-icon>
+                            <h3 class="text-white font-medium">Legal Professionals</h3>
+                        </div>
+                        <p class="text-zinc-500 text-sm">Solicitors and conveyancers conducting due diligence on property transactions</p>
+                    </div>
+
+                    <div class="p-4 rounded-xl bg-zinc-900/50 border border-white/5">
+                        <div class="flex items-center gap-3 mb-2">
+                            <iconify-icon icon="solar:graph-up-linear" width="20" class="text-emerald-400"></iconify-icon>
+                            <h3 class="text-white font-medium">Property Investors</h3>
+                        </div>
+                        <p class="text-zinc-500 text-sm">Analyzing portfolios and researching market opportunities</p>
+                    </div>
+
+                    <div class="p-4 rounded-xl bg-zinc-900/50 border border-white/5">
+                        <div class="flex items-center gap-3 mb-2">
+                            <iconify-icon icon="solar:newspaper-linear" width="20" class="text-emerald-400"></iconify-icon>
+                            <h3 class="text-white font-medium">Journalists & Researchers</h3>
+                        </div>
+                        <p class="text-zinc-500 text-sm">Investigative reporting and academic studies on land ownership</p>
+                    </div>
+
+                    <div class="p-4 rounded-xl bg-zinc-900/50 border border-white/5">
+                        <div class="flex items-center gap-3 mb-2">
+                            <iconify-icon icon="solar:home-linear" width="20" class="text-emerald-400"></iconify-icon>
+                            <h3 class="text-white font-medium">Estate Agents</h3>
+                        </div>
+                        <p class="text-zinc-500 text-sm">Ownership verification and lead generation for commercial property</p>
+                    </div>
+
+                    <div class="p-4 rounded-xl bg-zinc-900/50 border border-white/5">
+                        <div class="flex items-center gap-3 mb-2">
+                            <iconify-icon icon="solar:city-linear" width="20" class="text-emerald-400"></iconify-icon>
+                            <h3 class="text-white font-medium">Urban Planners</h3>
+                        </div>
+                        <p class="text-zinc-500 text-sm">Understanding land ownership patterns for development planning</p>
+                    </div>
+
+                    <div class="p-4 rounded-xl bg-zinc-900/50 border border-white/5">
+                        <div class="flex items-center gap-3 mb-2">
+                            <iconify-icon icon="solar:briefcase-linear" width="20" class="text-emerald-400"></iconify-icon>
+                            <h3 class="text-white font-medium">Business Development</h3>
+                        </div>
+                        <p class="text-zinc-500 text-sm">Identifying property owners for commercial partnerships</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Accuracy & Limitations -->
+            <div class="glass-panel rounded-2xl p-10 mb-8">
+                <h2 class="text-2xl text-white font-medium mb-6 flex items-center gap-3">
+                    <iconify-icon icon="solar:info-circle-linear" width="28" class="text-amber-500"></iconify-icon>
+                    Data Accuracy & Limitations
+                </h2>
+                <div class="space-y-4 text-zinc-400">
+                    <p class="leading-relaxed">
+                        Our data comes directly from official government sources and is as accurate as the source datasets. However, please note:
+                    </p>
+                    <ul class="space-y-3">
+                        <li class="flex items-start gap-3">
+                            <iconify-icon icon="solar:check-circle-linear" class="text-emerald-500 mt-1 flex-shrink-0"></iconify-icon>
+                            <span>Coverage is limited to <strong class="text-white">registered</strong> properties in England and Wales. Unregistered land is not included.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <iconify-icon icon="solar:check-circle-linear" class="text-emerald-500 mt-1 flex-shrink-0"></iconify-icon>
+                            <span>Data is updated <strong class="text-white">monthly</strong> based on HM Land Registry releases. Very recent transactions may not appear yet.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <iconify-icon icon="solar:check-circle-linear" class="text-emerald-500 mt-1 flex-shrink-0"></iconify-icon>
+                            <span>Only <strong class="text-white">corporate ownership</strong> is included. Properties owned by individuals are not in the CCOD dataset.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <iconify-icon icon="solar:check-circle-linear" class="text-emerald-500 mt-1 flex-shrink-0"></iconify-icon>
+                            <span>Scotland and Northern Ireland have separate registry systems and are not covered.</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- CTA Section -->
+            <div class="text-center glass-panel rounded-2xl p-12">
+                <h2 class="text-2xl text-white font-medium mb-4">Ready to Search?</h2>
+                <p class="text-zinc-400 mb-6">Start exploring UK corporate land ownership data now</p>
+                <a href="/search" class="inline-flex items-center gap-3 bg-white text-black rounded-full px-8 py-4 hover:bg-zinc-200 transition-all font-semibold text-sm uppercase tracking-wider">
+                    <iconify-icon icon="solar:magnifer-linear" width="18"></iconify-icon>
+                    Search Registry
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="text-sm font-light text-zinc-500 bg-zinc-950 border-white/5 border-t pt-12 pb-12">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] uppercase tracking-widest">
+                <div class="flex items-center gap-2">
+                    <iconify-icon icon="solar:buildings-2-linear"></iconify-icon>
+                    <span>LandRegistry.company</span>
+                </div>
+                <p>© 2026 Data sourced from HM Land Registry under Open Government Licence.</p>
+                <div class="flex gap-4">
+                    <a href="/faq" class="hover:text-white transition-colors">FAQ</a>
+                    <a href="/about" class="hover:text-white transition-colors">About</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

@@ -3,9 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Corporate Land Registry - Search land ownership by company name, number, or address.">
+    <meta name="description" content="Search UK corporate land ownership by company name, registration number, director name, or property address. Access official HM Land Registry CCOD data instantly.">
     <meta name="robots" content="index, follow">
-    <title>Search | Corporate Land Registry</title>
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://ccod-property-lookup.vercel.app/search">
+    <meta property="og:title" content="Search UK Land Registry | Company Property Ownership Lookup">
+    <meta property="og:description" content="Search UK corporate land ownership by company name, registration number, director name, or property address.">
+    <meta property="og:site_name" content="UK Land Registry Search">
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://ccod-property-lookup.vercel.app/search">
+    <meta name="twitter:title" content="Search UK Land Registry | Company Property Ownership Lookup">
+    <meta name="twitter:description" content="Search UK corporate land ownership by company name, registration number, director name, or property address.">
+    
+    <title>Search UK Land Registry | Company Property Ownership Lookup</title>
+    <link rel="canonical" href="https://ccod-property-lookup.vercel.app/search">
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
     <link rel="alternate icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.svg') }}">
@@ -14,6 +29,17 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Google Analytics 4 -->
+    {% if config.get('GA4_MEASUREMENT_ID') %}
+    <script async src="https://www.googletagmanager.com/gtag/js?id={{ config.GA4_MEASUREMENT_ID }}"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', '{{ config.GA4_MEASUREMENT_ID }}');
+    </script>
+    {% endif %}
     <style>
         body {
             font-family: 'Geist', system-ui, sans-serif;
@@ -946,6 +972,16 @@
                 const data = await response.json();
 
                 if (data.success) {
+                    // Track successful search in GA4
+                    if (typeof gtag !== 'undefined') {
+                        gtag('event', 'search', {
+                            search_term: searchValue,
+                            search_type: searchType,
+                            result_count: data.results ? data.results.length : 0,
+                            credits_used: data.credits_used || false
+                        });
+                    }
+                    
                     // Update credits display
                     if (data.remaining_credits !== undefined) {
                         updateCreditsDisplay(data.remaining_credits);
@@ -1347,6 +1383,15 @@
                         // Generate CSV client-side (instant!)
                         const csvContent = generateCSV(lastSearchResults);
                         downloadFile(csvContent, `${filename}.csv`, 'text/csv;charset=utf-8;');
+                        
+                        // Track export in GA4
+                        if (typeof gtag !== 'undefined') {
+                            gtag('event', 'export', {
+                                export_format: 'csv',
+                                result_count: lastSearchResults.length,
+                                search_type: lastSearchType
+                            });
+                        }
                     } else {
                         // Generate JSON client-side (instant!)
                         const jsonData = {
@@ -1358,6 +1403,15 @@
                         };
                         const jsonContent = JSON.stringify(jsonData, null, 2);
                         downloadFile(jsonContent, `${filename}.json`, 'application/json');
+                        
+                        // Track export in GA4
+                        if (typeof gtag !== 'undefined') {
+                            gtag('event', 'export', {
+                                export_format: 'json',
+                                result_count: lastSearchResults.length,
+                                search_type: lastSearchType
+                            });
+                        }
                     }
                 } catch (error) {
                     showError('Failed to export data. Please try again.');

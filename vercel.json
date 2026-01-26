@@ -7,6 +7,14 @@
   ],
   "routes": [
     {
+      "src": "/robots.txt",
+      "dest": "app/static/robots.txt"
+    },
+    {
+      "src": "/sitemap.xml",
+      "dest": "app/static/sitemap.xml"
+    },
+    {
       "src": "/static/(.*)",
       "dest": "app/static/$1"
     },

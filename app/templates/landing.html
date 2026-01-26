@@ -3,9 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Corporate Land Registry - Search land ownership by company name, number, or address. Access 120+ million land records linked to corporate entities.">
+    <meta name="description" content="Free UK land registry search tool. Find properties owned by companies using company name, number, or address. Instant CCOD database search with export options.">
     <meta name="robots" content="index, follow">
-    <title>Corporate Land Registry | LandRegistry.io</title>
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://ccod-property-lookup.vercel.app/">
+    <meta property="og:title" content="UK Land Registry Search | Corporate Property Ownership Lookup">
+    <meta property="og:description" content="Free UK land registry search tool. Find properties owned by companies using company name, number, or address. Instant CCOD database search with export options.">
+    <meta property="og:site_name" content="UK Land Registry Search">
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://ccod-property-lookup.vercel.app/">
+    <meta name="twitter:title" content="UK Land Registry Search | Corporate Property Ownership Lookup">
+    <meta name="twitter:description" content="Free UK land registry search tool. Find properties owned by companies using company name, number, or address.">
+    
+    <title>UK Land Registry Search | Corporate Property Ownership Lookup</title>
+    <link rel="canonical" href="https://ccod-property-lookup.vercel.app/">
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
     <link rel="alternate icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.svg') }}">
@@ -14,6 +29,17 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Google Analytics 4 -->
+    {% if config.get('GA4_MEASUREMENT_ID') %}
+    <script async src="https://www.googletagmanager.com/gtag/js?id={{ config.GA4_MEASUREMENT_ID }}"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', '{{ config.GA4_MEASUREMENT_ID }}');
+    </script>
+    {% endif %}
     <style>
         body {
             font-family: 'Geist', system-ui, sans-serif;
@@ -397,8 +423,8 @@
                 </div>
 
                 <h1 class="md:text-6xl lg:text-7xl xl:text-8xl leading-[0.95] text-glow text-5xl text-white tracking-tighter mb-8 font-medium animate-fade-in-up opacity-0" style="animation-delay: 0.2s">
-                    <span class="block">Corporate Land</span>
-                    <span class="block gradient-text">Registry Search</span>
+                    <span class="block">UK Corporate Land Registry Search</span>
+                    <span class="block gradient-text">Find Properties Owned by Companies</span>
                 </h1>
 
                 <p class="md:text-xl leading-relaxed text-lg font-light text-zinc-400 max-w-2xl mx-auto mb-12 animate-fade-in opacity-0" style="animation-delay: 0.4s">
@@ -768,6 +794,34 @@
             </div>
         </div>
     </footer>
+
+    <!-- Schema.org JSON-LD -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "UK Land Registry Corporate Search",
+      "applicationCategory": "BusinessApplication",
+      "description": "Search UK corporate land ownership by company name, number, or address using official CCOD data from HM Land Registry",
+      "url": "https://ccod-property-lookup.vercel.app",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "GBP"
+      },
+      "featureList": [
+        "Fast search by company name",
+        "Company number lookup",
+        "Director search",
+        "Address and postcode search",
+        "CSV export",
+        "JSON export",
+        "Official CCOD data"
+      ],
+      "operatingSystem": "Web Browser",
+      "browserRequirements": "Requires JavaScript"
+    }
+    </script>
 
     <!-- Particles.js -->
     <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
