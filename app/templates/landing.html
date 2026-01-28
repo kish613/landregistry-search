@@ -26,6 +26,13 @@
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
     <link rel="alternate icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.svg') }}">
+
+    <!-- Resource Hints for Performance -->
+    <link rel="dns-prefetch" href="https://cdn.tailwindcss.com">
+    <link rel="dns-prefetch" href="https://code.iconify.design">
+    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+    <link rel="dns-prefetch" href="https://www.googletagmanager.com">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -807,9 +814,34 @@
       "description": "Search UK corporate land ownership by company name, number, or address using official CCOD data from HM Land Registry",
       "url": "https://landregistry.company",
       "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "GBP"
+        "@type": "AggregateOffer",
+        "priceCurrency": "GBP",
+        "lowPrice": "1.00",
+        "highPrice": "3.00",
+        "offerCount": "3",
+        "offers": [
+          {
+            "@type": "Offer",
+            "name": "Standard Search",
+            "description": "Search by company name, number, or address",
+            "price": "1.00",
+            "priceCurrency": "GBP"
+          },
+          {
+            "@type": "Offer",
+            "name": "Director Search",
+            "description": "Search properties by director name",
+            "price": "3.00",
+            "priceCurrency": "GBP"
+          },
+          {
+            "@type": "Offer",
+            "name": "Free Trial",
+            "description": "10 free credits for new users",
+            "price": "0",
+            "priceCurrency": "GBP"
+          }
+        ]
       },
       "featureList": [
         "Fast search by company name",
@@ -822,6 +854,22 @@
       ],
       "operatingSystem": "Web Browser",
       "browserRequirements": "Requires JavaScript"
+    }
+    </script>
+
+    <!-- BreadcrumbList Schema -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://landregistry.company/"
+        }
+      ]
     }
     </script>
 
