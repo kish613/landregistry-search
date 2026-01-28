@@ -19,6 +19,7 @@ from rapidfuzz import fuzz, process
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from functools import wraps
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Load environment variables from .env or env.local
 load_dotenv()
@@ -112,6 +113,31 @@ def dict_cursor(conn):
         return conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     else:
         return conn.cursor()
+
+
+# ============================================
+# NORMALIZATION HELPERS (Single Source of Truth)
+# ============================================
+
+def normalize_company_reg(value):
+    """
+    Normalize company registration number - SINGLE SOURCE OF TRUTH
+    Used for both storing normalized data AND query parameters to ensure consistency.
+    
+    Normalizes: uppercase, removes spaces, hyphens, parentheses
+    """
+    if not value:
+        return ''
+    return value.strip().upper().replace('(', '').replace(')', '').replace(' ', '').replace('-', '')
+
+
+def normalize_text_upper(value):
+    """
+    Normalize text to uppercase trimmed - for name/address searches
+    """
+    if not value:
+        return ''
+    return value.strip().upper()
 
 
 # ============================================
@@ -528,39 +554,63 @@ def search_properties_by_company(company_number):
     if not company_number:
         return []
     
-    # Normalize company number - remove spaces, parentheses, hyphens, convert to uppercase
-    # Preserve leading zeros!
-    company_number = company_number.strip().upper()
-    company_number = company_number.replace('(', '').replace(')', '').replace(' ', '').replace('-', '')
+    # Normalize company number using single source of truth
+    company_number_normalized = normalize_company_reg(company_number)
     
     conn = get_db_connection()
     cursor = dict_cursor(conn)
     
-    # Query properties with matching company registration number
-    # Normalize both input and database values for comparison (remove spaces, parentheses, convert to uppercase)
-    cursor.execute("""
-        SELECT 
-            p.id,
-            p.title_number,
-            p.tenure,
-            p.property_address,
-            p.district,
-            p.county,
-            p.region,
-            p.postcode,
-            p.price_paid,
-            p.date_proprietor_added,
-            pr.proprietor_name,
-            pr.proprietorship_category,
-            pr.address_line_1,
-            pr.address_line_2,
-            pr.address_line_3,
-            pr.company_registration_no
-        FROM properties p
-        INNER JOIN proprietors pr ON p.id = pr.property_id
-        WHERE UPPER(REPLACE(REPLACE(REPLACE(REPLACE(TRIM(pr.company_registration_no), '(', ''), ')', ''), ' ', ''), '-', '')) = %s
-        ORDER BY p.property_address
-    """, (company_number.replace('(', '').replace(')', '').replace(' ', '').replace('-', ''),))
+    # Query properties with matching company registration number using indexed normalized column
+    if DATABASE_URL:
+        # PostgreSQL: use normalized column with index
+        cursor.execute("""
+            SELECT 
+                p.id,
+                p.title_number,
+                p.tenure,
+                p.property_address,
+                p.district,
+                p.county,
+                p.region,
+                p.postcode,
+                p.price_paid,
+                p.date_proprietor_added,
+                pr.proprietor_name,
+                pr.proprietorship_category,
+                pr.address_line_1,
+                pr.address_line_2,
+                pr.address_line_3,
+                pr.company_registration_no
+            FROM properties p
+            INNER JOIN proprietors pr ON p.id = pr.property_id
+            WHERE pr.company_reg_normalized = %s
+            ORDER BY p.property_address
+        """, (company_number_normalized,))
+    else:
+        # SQLite fallback: use function-based query (no normalized column in SQLite)
+        cursor.execute("""
+            SELECT 
+                p.id,
+                p.title_number,
+                p.tenure,
+                p.property_address,
+                p.district,
+                p.county,
+                p.region,
+                p.postcode,
+                p.price_paid,
+                p.date_proprietor_added,
+                pr.proprietor_name,
+                pr.proprietorship_category,
+                pr.address_line_1,
+                pr.address_line_2,
+                pr.address_line_3,
+                pr.company_registration_no
+            FROM properties p
+            INNER JOIN proprietors pr ON p.id = pr.property_id
+            WHERE UPPER(REPLACE(REPLACE(REPLACE(REPLACE(TRIM(pr.company_registration_no), '(', ''), ')', ''), ' ', ''), '-', '')) = ?
+            ORDER BY p.property_address
+        """, (company_number_normalized,))
     
     results = cursor.fetchall()
     conn.close()
@@ -591,37 +641,64 @@ def search_properties_by_company_name(company_name, fuzzy_threshold=70):
     if not company_name:
         return [], []
     
-    # Normalize company name - trim and convert to uppercase for case-insensitive search
-    company_name_normalized = company_name.strip().upper()
+    # Normalize company name using helper function
+    company_name_normalized = normalize_text_upper(company_name)
     company_name_original = company_name.strip()
     
     conn = get_db_connection()
     cursor = dict_cursor(conn)
     
-    # First, try exact/partial match (current behavior)
-    cursor.execute("""
-        SELECT 
-            p.id,
-            p.title_number,
-            p.tenure,
-            p.property_address,
-            p.district,
-            p.county,
-            p.region,
-            p.postcode,
-            p.price_paid,
-            p.date_proprietor_added,
-            pr.proprietor_name,
-            pr.proprietorship_category,
-            pr.address_line_1,
-            pr.address_line_2,
-            pr.address_line_3,
-            pr.company_registration_no
-        FROM properties p
-        INNER JOIN proprietors pr ON p.id = pr.property_id
-        WHERE UPPER(TRIM(pr.proprietor_name)) LIKE %s
-        ORDER BY pr.proprietor_name, p.property_address
-    """, (f'%{company_name_normalized}%',))
+    # First, try exact/partial match using indexed normalized column
+    if DATABASE_URL:
+        # PostgreSQL: use trigram-indexed normalized column
+        cursor.execute("""
+            SELECT 
+                p.id,
+                p.title_number,
+                p.tenure,
+                p.property_address,
+                p.district,
+                p.county,
+                p.region,
+                p.postcode,
+                p.price_paid,
+                p.date_proprietor_added,
+                pr.proprietor_name,
+                pr.proprietorship_category,
+                pr.address_line_1,
+                pr.address_line_2,
+                pr.address_line_3,
+                pr.company_registration_no
+            FROM properties p
+            INNER JOIN proprietors pr ON p.id = pr.property_id
+            WHERE pr.proprietor_name_upper LIKE %s
+            ORDER BY pr.proprietor_name, p.property_address
+        """, (f'%{company_name_normalized}%',))
+    else:
+        # SQLite fallback: use function-based query
+        cursor.execute("""
+            SELECT 
+                p.id,
+                p.title_number,
+                p.tenure,
+                p.property_address,
+                p.district,
+                p.county,
+                p.region,
+                p.postcode,
+                p.price_paid,
+                p.date_proprietor_added,
+                pr.proprietor_name,
+                pr.proprietorship_category,
+                pr.address_line_1,
+                pr.address_line_2,
+                pr.address_line_3,
+                pr.company_registration_no
+            FROM properties p
+            INNER JOIN proprietors pr ON p.id = pr.property_id
+            WHERE UPPER(TRIM(pr.proprietor_name)) LIKE ?
+            ORDER BY pr.proprietor_name, p.property_address
+        """, (f'%{company_name_normalized}%',))
     
     results = cursor.fetchall()
     conn.close()
@@ -661,38 +738,67 @@ def search_properties_by_address(address_query):
     if not address_query:
         return []
     
-    # Normalize address - trim and convert to uppercase for case-insensitive search
-    address_normalized = address_query.strip().upper()
+    # Normalize address using helper function
+    address_normalized = normalize_text_upper(address_query)
     
     conn = get_db_connection()
     cursor = dict_cursor(conn)
     
-    # Search in property_address and postcode fields
-    cursor.execute("""
-        SELECT 
-            p.id,
-            p.title_number,
-            p.tenure,
-            p.property_address,
-            p.district,
-            p.county,
-            p.region,
-            p.postcode,
-            p.price_paid,
-            p.date_proprietor_added,
-            pr.proprietor_name,
-            pr.proprietorship_category,
-            pr.address_line_1,
-            pr.address_line_2,
-            pr.address_line_3,
-            pr.company_registration_no
-        FROM properties p
-        INNER JOIN proprietors pr ON p.id = pr.property_id
-        WHERE UPPER(TRIM(p.property_address)) LIKE %s
-           OR UPPER(TRIM(p.postcode)) LIKE %s
-        ORDER BY p.property_address
-        LIMIT 500
-    """, (f'%{address_normalized}%', f'%{address_normalized}%'))
+    # Search in property_address and postcode fields using indexed normalized columns
+    if DATABASE_URL:
+        # PostgreSQL: use trigram-indexed normalized columns
+        cursor.execute("""
+            SELECT 
+                p.id,
+                p.title_number,
+                p.tenure,
+                p.property_address,
+                p.district,
+                p.county,
+                p.region,
+                p.postcode,
+                p.price_paid,
+                p.date_proprietor_added,
+                pr.proprietor_name,
+                pr.proprietorship_category,
+                pr.address_line_1,
+                pr.address_line_2,
+                pr.address_line_3,
+                pr.company_registration_no
+            FROM properties p
+            INNER JOIN proprietors pr ON p.id = pr.property_id
+            WHERE p.property_address_upper LIKE %s
+               OR p.postcode_upper LIKE %s
+            ORDER BY p.property_address
+            LIMIT 500
+        """, (f'%{address_normalized}%', f'%{address_normalized}%'))
+    else:
+        # SQLite fallback: use function-based query
+        cursor.execute("""
+            SELECT 
+                p.id,
+                p.title_number,
+                p.tenure,
+                p.property_address,
+                p.district,
+                p.county,
+                p.region,
+                p.postcode,
+                p.price_paid,
+                p.date_proprietor_added,
+                pr.proprietor_name,
+                pr.proprietorship_category,
+                pr.address_line_1,
+                pr.address_line_2,
+                pr.address_line_3,
+                pr.company_registration_no
+            FROM properties p
+            INNER JOIN proprietors pr ON p.id = pr.property_id
+            WHERE UPPER(TRIM(p.property_address)) LIKE ?
+               OR UPPER(TRIM(p.postcode)) LIKE ?
+            ORDER BY p.property_address
+            LIMIT 500
+        """, (f'%{address_normalized}%', f'%{address_normalized}%'))
     
     results = cursor.fetchall()
     conn.close()
@@ -870,33 +976,47 @@ def search_properties_by_director(director_name):
         suggestions = [{'name': m[0], 'similarity': round(m[1], 1)} for m in matches if m[1] >= 60]
         return [], [], suggestions, "No individual directors found matching this name. Try searching by company name instead."
     
-    # Step 2: For each officer, get their company appointments
+    # Step 2: For each officer, get their company appointments (PARALLELIZED)
     directors_found = []
     all_company_numbers = set()
     
     # Limit to first 15 individual officers to balance thoroughness with rate limits
-    for officer in officers[:15]:
-        officer_link = officer.get('links', {}).get('self', '')
+    officers_to_process = officers[:15]
+    
+    # Parallelize API calls using ThreadPoolExecutor for faster execution
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        # Submit all appointment fetch tasks
+        future_to_officer = {
+            executor.submit(get_officer_appointments, officer.get('links', {}).get('self', '')): officer
+            for officer in officers_to_process
+            if officer.get('links', {}).get('self', '')
+        }
         
-        if officer_link:
-            appointments = get_officer_appointments(officer_link)
-            
-            # Collect unique company numbers
-            for appt in appointments:
-                company_num = appt.get('company_number', '').strip()
-                if company_num:
-                    all_company_numbers.add(company_num)
-                    
-                    # Track which directors map to which companies
-                    directors_found.append({
-                        'director_name': officer.get('name', ''),
-                        'company_number': company_num,
-                        'company_name': appt.get('company_name', ''),
-                        'officer_role': appt.get('officer_role', ''),
-                        'appointed_on': appt.get('appointed_on', ''),
-                        'resigned_on': appt.get('resigned_on', ''),
-                        'company_status': appt.get('company_status', '')
-                    })
+        # Process completed futures as they finish
+        for future in as_completed(future_to_officer):
+            officer = future_to_officer[future]
+            try:
+                appointments = future.result()
+                
+                # Collect unique company numbers
+                for appt in appointments:
+                    company_num = appt.get('company_number', '').strip()
+                    if company_num:
+                        all_company_numbers.add(company_num)
+                        
+                        # Track which directors map to which companies
+                        directors_found.append({
+                            'director_name': officer.get('name', ''),
+                            'company_number': company_num,
+                            'company_name': appt.get('company_name', ''),
+                            'officer_role': appt.get('officer_role', ''),
+                            'appointed_on': appt.get('appointed_on', ''),
+                            'resigned_on': appt.get('resigned_on', ''),
+                            'company_status': appt.get('company_status', '')
+                        })
+            except Exception as e:
+                # Log error but continue processing other officers
+                print(f"Error fetching appointments for officer {officer.get('name', 'unknown')}: {e}")
     
     if not all_company_numbers:
         # Found directors but no company appointments
@@ -906,35 +1026,63 @@ def search_properties_by_director(director_name):
     conn = get_db_connection()
     cursor = dict_cursor(conn)
     
-    # Build query with multiple company numbers
+    # Build query with multiple company numbers using normalized column
     placeholders = ','.join(['%s'] * len(all_company_numbers))
-    company_list = list(all_company_numbers)
+    company_list = [normalize_company_reg(cn) for cn in all_company_numbers]
     
-    cursor.execute(f"""
-        SELECT 
-            p.id,
-            p.title_number,
-            p.tenure,
-            p.property_address,
-            p.district,
-            p.county,
-            p.region,
-            p.postcode,
-            p.price_paid,
-            p.date_proprietor_added,
-            pr.proprietor_name,
-            pr.proprietorship_category,
-            pr.address_line_1,
-            pr.address_line_2,
-            pr.address_line_3,
-            pr.company_registration_no
-        FROM properties p
-        INNER JOIN proprietors pr ON p.id = pr.property_id
-        WHERE UPPER(REPLACE(REPLACE(REPLACE(REPLACE(TRIM(pr.company_registration_no), '(', ''), ')', ''), ' ', ''), '-', '')) 
-              IN ({placeholders})
-        ORDER BY pr.proprietor_name, p.property_address
-        LIMIT 500
-    """, [cn.upper().replace('(', '').replace(')', '').replace(' ', '').replace('-', '') for cn in company_list])
+    if DATABASE_URL:
+        # PostgreSQL: use indexed normalized column
+        cursor.execute(f"""
+            SELECT 
+                p.id,
+                p.title_number,
+                p.tenure,
+                p.property_address,
+                p.district,
+                p.county,
+                p.region,
+                p.postcode,
+                p.price_paid,
+                p.date_proprietor_added,
+                pr.proprietor_name,
+                pr.proprietorship_category,
+                pr.address_line_1,
+                pr.address_line_2,
+                pr.address_line_3,
+                pr.company_registration_no
+            FROM properties p
+            INNER JOIN proprietors pr ON p.id = pr.property_id
+            WHERE pr.company_reg_normalized IN ({placeholders})
+            ORDER BY pr.proprietor_name, p.property_address
+            LIMIT 500
+        """, company_list)
+    else:
+        # SQLite fallback: use function-based query
+        cursor.execute(f"""
+            SELECT 
+                p.id,
+                p.title_number,
+                p.tenure,
+                p.property_address,
+                p.district,
+                p.county,
+                p.region,
+                p.postcode,
+                p.price_paid,
+                p.date_proprietor_added,
+                pr.proprietor_name,
+                pr.proprietorship_category,
+                pr.address_line_1,
+                pr.address_line_2,
+                pr.address_line_3,
+                pr.company_registration_no
+            FROM properties p
+            INNER JOIN proprietors pr ON p.id = pr.property_id
+            WHERE UPPER(REPLACE(REPLACE(REPLACE(REPLACE(TRIM(pr.company_registration_no), '(', ''), ')', ''), ' ', ''), '-', '')) 
+                  IN ({','.join(['?'] * len(company_list))})
+            ORDER BY pr.proprietor_name, p.property_address
+            LIMIT 500
+        """, company_list)
     
     results = cursor.fetchall()
     conn.close()
@@ -1503,38 +1651,66 @@ def api_search_director_properties():
             'remaining_credits': remaining_credits
         })
 
-    # Search Land Registry database for properties owned by these companies
+    # Search Land Registry database for properties owned by these companies using normalized column
     conn = get_db_connection()
     cursor = dict_cursor(conn)
 
     placeholders = ','.join(['%s'] * len(all_company_numbers))
-    company_list = list(all_company_numbers)
+    company_list = [normalize_company_reg(cn) for cn in all_company_numbers]
 
-    cursor.execute(f"""
-        SELECT
-            p.id,
-            p.title_number,
-            p.tenure,
-            p.property_address,
-            p.district,
-            p.county,
-            p.region,
-            p.postcode,
-            p.price_paid,
-            p.date_proprietor_added,
-            pr.proprietor_name,
-            pr.proprietorship_category,
-            pr.address_line_1,
-            pr.address_line_2,
-            pr.address_line_3,
-            pr.company_registration_no
-        FROM properties p
-        INNER JOIN proprietors pr ON p.id = pr.property_id
-        WHERE UPPER(REPLACE(REPLACE(REPLACE(REPLACE(TRIM(pr.company_registration_no), '(', ''), ')', ''), ' ', ''), '-', ''))
-              IN ({placeholders})
-        ORDER BY pr.proprietor_name, p.property_address
-        LIMIT 500
-    """, [cn.upper().replace('(', '').replace(')', '').replace(' ', '').replace('-', '') for cn in company_list])
+    if DATABASE_URL:
+        # PostgreSQL: use indexed normalized column
+        cursor.execute(f"""
+            SELECT
+                p.id,
+                p.title_number,
+                p.tenure,
+                p.property_address,
+                p.district,
+                p.county,
+                p.region,
+                p.postcode,
+                p.price_paid,
+                p.date_proprietor_added,
+                pr.proprietor_name,
+                pr.proprietorship_category,
+                pr.address_line_1,
+                pr.address_line_2,
+                pr.address_line_3,
+                pr.company_registration_no
+            FROM properties p
+            INNER JOIN proprietors pr ON p.id = pr.property_id
+            WHERE pr.company_reg_normalized IN ({placeholders})
+            ORDER BY pr.proprietor_name, p.property_address
+            LIMIT 500
+        """, company_list)
+    else:
+        # SQLite fallback: use function-based query
+        cursor.execute(f"""
+            SELECT
+                p.id,
+                p.title_number,
+                p.tenure,
+                p.property_address,
+                p.district,
+                p.county,
+                p.region,
+                p.postcode,
+                p.price_paid,
+                p.date_proprietor_added,
+                pr.proprietor_name,
+                pr.proprietorship_category,
+                pr.address_line_1,
+                pr.address_line_2,
+                pr.address_line_3,
+                pr.company_registration_no
+            FROM properties p
+            INNER JOIN proprietors pr ON p.id = pr.property_id
+            WHERE UPPER(REPLACE(REPLACE(REPLACE(REPLACE(TRIM(pr.company_registration_no), '(', ''), ')', ''), ' ', ''), '-', ''))
+                  IN ({','.join(['?'] * len(company_list))})
+            ORDER BY pr.proprietor_name, p.property_address
+            LIMIT 500
+        """, company_list)
 
     results = cursor.fetchall()
     conn.close()
