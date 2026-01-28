@@ -290,6 +290,36 @@
             margin-left: 6px;
         }
         /* ========== END CREDITS STYLES ========== */
+
+        /* ========== DIRECTOR SELECTION STYLES ========== */
+        .director-card {
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .director-card:hover {
+            background: rgba(59, 130, 246, 0.1);
+            border-color: rgba(59, 130, 246, 0.3);
+            transform: translateX(4px);
+        }
+        .director-card:hover .view-properties-hint {
+            opacity: 1;
+        }
+        .view-properties-hint {
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        .director-card-loading {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+        .director-card-loading .director-card-arrow {
+            display: none;
+        }
+        .director-card-loading .director-card-spinner {
+            display: block !important;
+        }
+        /* ========== END DIRECTOR SELECTION STYLES ========== */
     </style>
 </head>
 <body class="antialiased selection:bg-white/10 selection:text-white overflow-x-hidden text-zinc-400">
@@ -685,13 +715,34 @@
                 <div id="resultsList" class="space-y-4"></div>
             </div>
 
-            <!-- Directors Found Section (for director searches) -->
+            <!-- Director Selection Section (Stage 1 - Select a director) -->
+            <div id="directorSelectionSection" class="hidden mb-8">
+                <div class="glass-panel rounded-xl p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-white font-medium flex items-center gap-2">
+                            <iconify-icon icon="solar:users-group-rounded-linear" width="20" class="text-blue-400"></iconify-icon>
+                            <span id="directorSelectionTitle">Select a Director</span>
+                        </h3>
+                        <span class="text-xs text-zinc-500">Click to view properties</span>
+                    </div>
+                    <p class="text-zinc-400 text-sm mb-4" id="directorSelectionSubtitle">Multiple directors match your search. Select one to view their company properties.</p>
+                    <div id="directorSelectionList" class="space-y-3"></div>
+                </div>
+            </div>
+
+            <!-- Directors Found Section (for director searches - Stage 2 results) -->
             <div id="directorsSection" class="hidden mb-8">
                 <div class="glass-panel rounded-xl p-6">
-                    <h3 class="text-white font-medium mb-4 flex items-center gap-2">
-                        <iconify-icon icon="solar:user-check-rounded-linear" width="18" class="text-emerald-500"></iconify-icon>
-                        <span id="directorsTitle">Directors & Companies Found</span>
-                    </h3>
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-white font-medium flex items-center gap-2">
+                            <iconify-icon icon="solar:user-check-rounded-linear" width="18" class="text-emerald-500"></iconify-icon>
+                            <span id="directorsTitle">Directors & Companies Found</span>
+                        </h3>
+                        <button id="backToDirectorsBtn" onclick="backToDirectorSelection()" class="text-xs text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1">
+                            <iconify-icon icon="solar:arrow-left-linear" width="14"></iconify-icon>
+                            Back to director list
+                        </button>
+                    </div>
                     <div id="directorsList" class="space-y-3"></div>
                 </div>
             </div>
@@ -790,6 +841,11 @@
         let lastSearchValue = '';
         let lastSearchResults = []; // Store results for fast client-side export
 
+        // Two-stage director search state
+        let directorSearchResults = [];     // List of directors from Stage 1
+        let selectedDirector = null;        // Currently selected director
+        let currentDirectorStage = null;    // 'selection' or 'properties'
+
         // Logout function
         async function logout() {
             try {
@@ -854,6 +910,10 @@
         const directorsSection = document.getElementById('directorsSection');
         const directorsList = document.getElementById('directorsList');
         const directorsTitle = document.getElementById('directorsTitle');
+        const directorSelectionSection = document.getElementById('directorSelectionSection');
+        const directorSelectionList = document.getElementById('directorSelectionList');
+        const directorSelectionTitle = document.getElementById('directorSelectionTitle');
+        const directorSelectionSubtitle = document.getElementById('directorSelectionSubtitle');
         const errorMessage = document.getElementById('errorMessage');
         const errorText = document.getElementById('errorText');
         const paymentCancelled = document.getElementById('paymentCancelled');
@@ -871,7 +931,23 @@
         function updateButtonPrice() {
             const pricePence = SEARCH_PRICES[currentSearchType] || 100;
             const creditCost = CREDIT_COSTS[currentSearchType] || 1;
-            
+
+            // Director search Stage 1 is FREE for everyone
+            if (currentSearchType === 'director') {
+                const btnCredits = document.getElementById('btnCredits');
+                const btnPriceEl = document.getElementById('btnPrice');
+
+                if (btnCredits) {
+                    btnCredits.textContent = 'Free lookup';
+                    btnCredits.className = 'bg-blue-100 text-blue-700 px-3 py-1 rounded-md text-xs font-bold';
+                }
+                if (btnPriceEl) {
+                    btnPriceEl.textContent = 'Free lookup';
+                    btnPriceEl.className = 'bg-blue-100 text-blue-700 px-3 py-1 rounded-md text-xs font-bold';
+                }
+                return;
+            }
+
             if (isLoggedIn) {
                 const btnCredits = document.getElementById('btnCredits');
                 if (btnCredits) {
@@ -881,7 +957,7 @@
                         btnCredits.className = 'bg-emerald-100 text-emerald-700 px-3 py-1 rounded-md text-xs font-bold';
                     } else {
                         btnCredits.textContent = `${creditCost} credit${creditCost > 1 ? 's' : ''}`;
-                        
+
                         // Change color if user doesn't have enough credits
                         if (userCredits < creditCost) {
                             btnCredits.className = 'bg-red-100 text-red-700 px-3 py-1 rounded-md text-xs font-bold';
@@ -937,14 +1013,20 @@
         searchForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const searchValue = searchInput.value.trim();
-            
+
             if (!searchValue) return;
-            
+
             lastSearchType = currentSearchType;
             lastSearchValue = searchValue;
-            
+
+            // Director search uses two-stage flow (Stage 1 is FREE)
+            if (currentSearchType === 'director') {
+                await searchDirectorsStage1(searchValue);
+                return;
+            }
+
             const creditCost = CREDIT_COSTS[currentSearchType] || 1;
-            
+
             // Unlimited users can always search
             if (isLoggedIn && isUnlimited) {
                 await executeSearchWithCredits(currentSearchType, searchValue);
@@ -971,7 +1053,280 @@
                 <button onclick="initiateCheckout('${currentSearchType}', searchInput.value.trim())" class="underline hover:no-underline">Pay £${(SEARCH_PRICES[currentSearchType] / 100).toFixed(2)} for this search</button>
             `;
         }
-        
+
+        // ====================================
+        // TWO-STAGE DIRECTOR SEARCH FUNCTIONS
+        // ====================================
+
+        // Stage 1: Search for directors (FREE - no credits required)
+        async function searchDirectorsStage1(directorName) {
+            // Show loading state
+            btnText.textContent = 'Searching Companies House...';
+            btnIcon.classList.add('hidden');
+            const btnCredits = document.getElementById('btnCredits');
+            const btnPriceEl = document.getElementById('btnPrice');
+            if (btnCredits) btnCredits.classList.add('hidden');
+            if (btnPriceEl) btnPriceEl.classList.add('hidden');
+            btnSpinner.classList.remove('hidden');
+            searchBtn.disabled = true;
+
+            // Hide previous results
+            hideAllMessages();
+
+            try {
+                const response = await fetch('/api/search/directors', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        director_name: directorName
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.directors && data.directors.length > 0) {
+                    // Store directors for selection
+                    directorSearchResults = data.directors;
+                    currentDirectorStage = 'selection';
+
+                    // Track Stage 1 search in GA4
+                    if (typeof gtag !== 'undefined') {
+                        gtag('event', 'director_search_stage1', {
+                            search_term: directorName,
+                            directors_found: data.directors.length
+                        });
+                    }
+
+                    // Display director selection list
+                    displayDirectorSelection(data.directors, directorName);
+                } else {
+                    // No directors found
+                    if (data.suggestions && data.suggestions.length > 0) {
+                        displaySuggestions(data.suggestions);
+                    }
+                    noResultsText.textContent = data.error || 'No directors found matching this name.';
+                    noResults.classList.remove('hidden');
+                }
+            } catch (error) {
+                showError('Failed to connect to the server. Please try again.');
+            } finally {
+                resetButtonState();
+            }
+        }
+
+        // Display director selection list (Stage 1 UI)
+        function displayDirectorSelection(directors, searchTerm) {
+            directorSelectionSection.classList.remove('hidden');
+            currentDirectorStage = 'selection';
+
+            directorSelectionTitle.textContent = `${directors.length} Director${directors.length > 1 ? 's' : ''} Found`;
+            directorSelectionSubtitle.textContent = directors.length > 1
+                ? `Multiple directors match "${searchTerm}". Select one to view their company properties.`
+                : `Found 1 director matching "${searchTerm}". Click to view their company properties.`;
+
+            // Build credit/price display
+            let costDisplay = '';
+            if (isLoggedIn) {
+                if (isUnlimited) {
+                    costDisplay = '<span class="text-emerald-400 text-xs">Free</span>';
+                } else {
+                    const hasEnough = userCredits >= 3;
+                    costDisplay = hasEnough
+                        ? '<span class="text-amber-400 text-xs">3 credits</span>'
+                        : '<span class="text-red-400 text-xs">3 credits (£3.00)</span>';
+                }
+            } else {
+                costDisplay = '<span class="text-emerald-400 text-xs">£3.00</span>';
+            }
+
+            directorSelectionList.innerHTML = directors.map((d, index) => `
+                <div class="director-card p-4 rounded-lg bg-zinc-900/50 flex items-center gap-4"
+                     style="animation: fadeIn 0.2s ease-out ${index * 0.05}s both"
+                     onclick="selectDirector('${escapeAttr(d.officer_id)}', '${escapeAttr(d.name)}')"
+                     data-officer-id="${escapeAttr(d.officer_id)}">
+                    <div class="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
+                        <iconify-icon icon="solar:user-bold" width="20" class="text-blue-400"></iconify-icon>
+                    </div>
+                    <div class="flex-grow min-w-0">
+                        <div class="text-white font-medium truncate">${escapeHtml(d.name)}</div>
+                        <div class="text-zinc-500 text-xs mt-1">
+                            ${d.date_of_birth ? `<span class="inline-flex items-center gap-1"><iconify-icon icon="solar:calendar-linear" width="12"></iconify-icon> Born ${escapeHtml(d.date_of_birth)}</span>` : ''}
+                            ${d.date_of_birth && d.appointment_count ? ' • ' : ''}
+                            ${d.appointment_count ? `<span class="inline-flex items-center gap-1"><iconify-icon icon="solar:buildings-2-linear" width="12"></iconify-icon> ${d.appointment_count} ${d.appointment_count === 1 ? 'company' : 'companies'}</span>` : ''}
+                        </div>
+                        ${d.address ? `<div class="text-zinc-600 text-xs mt-1 truncate">${escapeHtml(d.address)}</div>` : ''}
+                    </div>
+                    <div class="flex-shrink-0 flex items-center gap-3">
+                        <div class="view-properties-hint text-right hidden sm:block">
+                            <div class="text-xs text-blue-400">View properties</div>
+                            ${costDisplay}
+                        </div>
+                        <iconify-icon icon="solar:arrow-right-linear" width="20" class="text-zinc-600 director-card-arrow"></iconify-icon>
+                        <iconify-icon icon="svg-spinners:ring-resize" width="20" class="text-blue-400 director-card-spinner hidden"></iconify-icon>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Escape HTML attribute helper
+        function escapeAttr(text) {
+            if (!text) return '';
+            return text.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        }
+
+        // Stage 2: Get properties for selected director (REQUIRES credits/payment)
+        async function selectDirector(officerId, directorName) {
+            const creditCost = CREDIT_COSTS['director'] || 3;
+
+            // Store selected director
+            selectedDirector = { officerId, directorName };
+            lastSearchValue = directorName;
+
+            // Check if user can proceed (has credits, is unlimited, or needs payment)
+            if (isLoggedIn && isUnlimited) {
+                await fetchDirectorProperties(officerId, directorName);
+            } else if (isLoggedIn && userCredits >= creditCost) {
+                await fetchDirectorProperties(officerId, directorName);
+            } else if (isLoggedIn && userCredits < creditCost) {
+                // Show payment option in the card
+                showDirectorPaymentOption(officerId, directorName);
+            } else {
+                // Not logged in - redirect to Stripe checkout
+                await initiateDirectorCheckout(directorName, officerId);
+            }
+        }
+
+        // Show payment option for a specific director
+        function showDirectorPaymentOption(officerId, directorName) {
+            hideAllMessages();
+            errorMessage.classList.remove('hidden');
+            errorText.innerHTML = `
+                You need 3 credits to view properties for "${escapeHtml(directorName)}" but only have ${userCredits}.
+                <br><br>
+                <button onclick="initiateDirectorCheckout('${escapeAttr(directorName)}', '${escapeAttr(officerId)}')" class="underline hover:no-underline">Pay £3.00 for this search</button>
+                <span class="mx-2 text-zinc-600">or</span>
+                <button onclick="backToDirectorSelection()" class="underline hover:no-underline text-zinc-400">choose a different director</button>
+            `;
+        }
+
+        // Initiate Stripe checkout for director properties
+        async function initiateDirectorCheckout(directorName, officerId) {
+            // Show loading on the clicked card
+            const card = document.querySelector(`[data-officer-id="${officerId}"]`);
+            if (card) {
+                card.classList.add('director-card-loading');
+            }
+
+            try {
+                const response = await fetch('/api/create-checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        search_type: 'director',
+                        search_value: directorName
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.checkout_url) {
+                    // Store officer_id in session storage so we can use it after payment
+                    sessionStorage.setItem('pending_director_officer_id', officerId);
+                    sessionStorage.setItem('pending_director_name', directorName);
+                    window.location.href = data.checkout_url;
+                } else {
+                    showError(data.error || 'Failed to create checkout session');
+                    if (card) card.classList.remove('director-card-loading');
+                }
+            } catch (error) {
+                showError('Failed to connect to the payment server. Please try again.');
+                if (card) card.classList.remove('director-card-loading');
+            }
+        }
+
+        // Fetch director properties (Stage 2 - after credits/payment verified)
+        async function fetchDirectorProperties(officerId, directorName, sessionId = null) {
+            // Show loading on the clicked card
+            const card = document.querySelector(`[data-officer-id="${officerId}"]`);
+            if (card) {
+                card.classList.add('director-card-loading');
+            }
+
+            try {
+                const response = await fetch('/api/search/director-properties', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        officer_id: officerId,
+                        director_name: directorName,
+                        session_id: sessionId,
+                        use_credits: true
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Track Stage 2 search in GA4
+                    if (typeof gtag !== 'undefined') {
+                        gtag('event', 'director_search_stage2', {
+                            director_name: directorName,
+                            companies_found: data.directors_found ? data.directors_found.length : 0,
+                            properties_found: data.results ? data.results.length : 0,
+                            credits_used: data.credits_used || false
+                        });
+                    }
+
+                    // Update credits display
+                    if (data.remaining_credits !== undefined) {
+                        updateCreditsDisplay(data.remaining_credits);
+                    }
+
+                    // Hide director selection, show results
+                    directorSelectionSection.classList.add('hidden');
+                    currentDirectorStage = 'properties';
+
+                    // Display directors/companies found
+                    if (data.directors_found && data.directors_found.length > 0) {
+                        displayDirectors(data.directors_found, directorName);
+                    }
+
+                    // Display properties
+                    if (data.results && data.results.length > 0) {
+                        displayResults(data.results, 'director', directorName);
+                    } else {
+                        noResultsText.textContent = data.message || 'No properties found for companies linked to this director.';
+                        noResults.classList.remove('hidden');
+                    }
+                } else {
+                    if (data.payment_required) {
+                        showDirectorPaymentOption(officerId, directorName);
+                    } else {
+                        showError(data.error || 'An error occurred');
+                    }
+                    if (card) card.classList.remove('director-card-loading');
+                }
+            } catch (error) {
+                showError('Failed to connect to the server. Please try again.');
+                if (card) card.classList.remove('director-card-loading');
+            }
+        }
+
+        // Back to director selection list
+        function backToDirectorSelection() {
+            hideAllMessages();
+            currentDirectorStage = 'selection';
+
+            // Show the director selection list again
+            if (directorSearchResults.length > 0) {
+                displayDirectorSelection(directorSearchResults, lastSearchValue);
+            }
+        }
+
+        // ====================================
+        // END TWO-STAGE DIRECTOR SEARCH
+        // ====================================
+
         // Execute search using credits
         async function executeSearchWithCredits(searchType, searchValue) {
             // Show loading state
@@ -1175,6 +1530,7 @@
             noResults.classList.add('hidden');
             suggestionsSection.classList.add('hidden');
             directorsSection.classList.add('hidden');
+            directorSelectionSection.classList.add('hidden');
             errorMessage.classList.add('hidden');
             paymentCancelled.classList.add('hidden');
             paymentSuccess.classList.add('hidden');
@@ -1200,19 +1556,22 @@
             const searchType = urlParams.get('search_type');
             const searchValue = urlParams.get('search_value');
             const cancelled = urlParams.get('cancelled');
-            
+
             // Clean up URL (remove query params)
             if (sessionId || cancelled) {
                 const cleanUrl = window.location.pathname;
                 window.history.replaceState({}, document.title, cleanUrl);
             }
-            
+
             // Handle cancelled payment
             if (cancelled === 'true') {
                 paymentCancelled.classList.remove('hidden');
+                // Clear any pending director data
+                sessionStorage.removeItem('pending_director_officer_id');
+                sessionStorage.removeItem('pending_director_name');
                 return;
             }
-            
+
             // Handle successful payment - execute the search
             if (sessionId && searchType && searchValue) {
                 // Set the form values
@@ -1220,7 +1579,7 @@
                 searchInput.value = decodeURIComponent(searchValue);
                 updateSearchTypeBtnStyles();
                 updateButtonPrice();
-                
+
                 // Update label
                 const configs = {
                     name: { label: 'Company Name' },
@@ -1231,13 +1590,35 @@
                 if (configs[searchType]) {
                     searchLabel.textContent = configs[searchType].label;
                 }
-                
+
                 // Store for export
                 lastSearchType = searchType;
                 lastSearchValue = decodeURIComponent(searchValue);
-                
-                // Execute the search with payment verification
-                executeSearchWithPayment(searchType, decodeURIComponent(searchValue), sessionId);
+
+                // Handle director search differently - use Stage 2 endpoint if we have officer_id
+                if (searchType === 'director') {
+                    const pendingOfficerId = sessionStorage.getItem('pending_director_officer_id');
+                    const pendingDirectorName = sessionStorage.getItem('pending_director_name');
+
+                    // Clear session storage
+                    sessionStorage.removeItem('pending_director_officer_id');
+                    sessionStorage.removeItem('pending_director_name');
+
+                    if (pendingOfficerId) {
+                        // Show payment success message
+                        paymentSuccess.classList.remove('hidden');
+                        setTimeout(() => paymentSuccess.classList.add('hidden'), 2000);
+
+                        // Use the stored officer_id to fetch properties directly
+                        fetchDirectorProperties(pendingOfficerId, pendingDirectorName || decodeURIComponent(searchValue), sessionId);
+                    } else {
+                        // Fallback: Use the old single-stage search (shouldn't happen normally)
+                        executeSearchWithPayment(searchType, decodeURIComponent(searchValue), sessionId);
+                    }
+                } else {
+                    // Execute the search with payment verification
+                    executeSearchWithPayment(searchType, decodeURIComponent(searchValue), sessionId);
+                }
             }
         }
 
