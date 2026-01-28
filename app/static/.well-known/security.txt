@@ -1,0 +1,10 @@
+# Security Policy for LandRegistry.company
+# https://securitytxt.org/
+
+Contact: mailto:security@landregistry.company
+Expires: 2027-01-28T00:00:00.000Z
+Canonical: https://landregistry.company/.well-known/security.txt
+Preferred-Languages: en
+
+# This site uses official UK government open data from HM Land Registry.
+# We take security seriously and appreciate responsible disclosure.

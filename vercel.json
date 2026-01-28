@@ -15,6 +15,10 @@
       "dest": "app/static/sitemap.xml"
     },
     {
+      "src": "/.well-known/security.txt",
+      "dest": "app/static/.well-known/security.txt"
+    },
+    {
       "src": "/static/(.*)",
       "dest": "app/static/$1"
     },

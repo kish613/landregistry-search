@@ -8,22 +8,31 @@
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://ccod-property-lookup.vercel.app/">
+    <meta property="og:url" content="https://landregistry.company/">
     <meta property="og:title" content="UK Land Registry Search | Corporate Property Ownership Lookup">
     <meta property="og:description" content="Free UK land registry search tool. Find properties owned by companies using company name, number, or address. Instant CCOD database search with export options.">
     <meta property="og:site_name" content="UK Land Registry Search">
-    
+    <meta property="og:image" content="https://landregistry.company/static/og-image.png">
+
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:url" content="https://ccod-property-lookup.vercel.app/">
+    <meta name="twitter:url" content="https://landregistry.company/">
     <meta name="twitter:title" content="UK Land Registry Search | Corporate Property Ownership Lookup">
     <meta name="twitter:description" content="Free UK land registry search tool. Find properties owned by companies using company name, number, or address.">
-    
+    <meta name="twitter:image" content="https://landregistry.company/static/og-image.png">
+
     <title>UK Land Registry Search | Corporate Property Ownership Lookup</title>
-    <link rel="canonical" href="https://ccod-property-lookup.vercel.app/">
+    <link rel="canonical" href="https://landregistry.company/">
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
     <link rel="alternate icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.svg') }}">
+
+    <!-- Resource Hints for Performance -->
+    <link rel="dns-prefetch" href="https://cdn.tailwindcss.com">
+    <link rel="dns-prefetch" href="https://code.iconify.design">
+    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+    <link rel="dns-prefetch" href="https://www.googletagmanager.com">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -228,9 +237,9 @@
     <nav class="fixed z-[100] transition-all duration-300 bg-zinc-900/80 w-full border-white/5 border-b top-0 backdrop-blur-xl">
         <div class="flex h-20 max-w-7xl mx-auto px-6 items-center justify-between">
             <div class="flex gap-12 items-center">
-                <a href="/" class="logo-link">
+                <a href="/" class="logo-link" aria-label="LandRegistry.company - Home">
                     <div class="logo-svg-container">
-                        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true">
                             <defs>
                                 <!-- Shield Gradient -->
                                 <linearGradient id="shieldGloss" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -803,11 +812,36 @@
       "name": "UK Land Registry Corporate Search",
       "applicationCategory": "BusinessApplication",
       "description": "Search UK corporate land ownership by company name, number, or address using official CCOD data from HM Land Registry",
-      "url": "https://ccod-property-lookup.vercel.app",
+      "url": "https://landregistry.company",
       "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "GBP"
+        "@type": "AggregateOffer",
+        "priceCurrency": "GBP",
+        "lowPrice": "1.00",
+        "highPrice": "3.00",
+        "offerCount": "3",
+        "offers": [
+          {
+            "@type": "Offer",
+            "name": "Standard Search",
+            "description": "Search by company name, number, or address",
+            "price": "1.00",
+            "priceCurrency": "GBP"
+          },
+          {
+            "@type": "Offer",
+            "name": "Director Search",
+            "description": "Search properties by director name",
+            "price": "3.00",
+            "priceCurrency": "GBP"
+          },
+          {
+            "@type": "Offer",
+            "name": "Free Trial",
+            "description": "10 free credits for new users",
+            "price": "0",
+            "priceCurrency": "GBP"
+          }
+        ]
       },
       "featureList": [
         "Fast search by company name",
@@ -820,6 +854,22 @@
       ],
       "operatingSystem": "Web Browser",
       "browserRequirements": "Requires JavaScript"
+    }
+    </script>
+
+    <!-- BreadcrumbList Schema -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://landregistry.company/"
+        }
+      ]
     }
     </script>
 

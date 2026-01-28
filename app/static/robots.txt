@@ -1,3 +1,8 @@
 User-agent: *
 Allow: /
-Sitemap: https://ccod-property-lookup.vercel.app/sitemap.xml
+
+# Sitemap location
+Sitemap: https://landregistry.company/sitemap.xml
+
+# Block auth page (already noindex but belt-and-suspenders)
+Disallow: /auth

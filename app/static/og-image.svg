@@ -1,0 +1,85 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#09090b;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#18181b;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="shieldGloss" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f2c52;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#1a4d6e;stop-opacity:1" />
+      <stop offset="52%" style="stop-color:#2a7a85;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0f2c52;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="goldFace" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#fce7f3;stop-opacity:1" />
+      <stop offset="20%" style="stop-color:#eab308;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#a16207;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="goldEdge" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#854d0e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ca8a04;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bgGradient)"/>
+
+  <!-- Grid pattern -->
+  <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+  </pattern>
+  <rect width="1200" height="630" fill="url(#grid)"/>
+
+  <!-- Decorative elements -->
+  <circle cx="200" cy="150" r="200" fill="rgba(255,255,255,0.02)"/>
+  <circle cx="1000" cy="500" r="250" fill="rgba(255,255,255,0.02)"/>
+
+  <!-- Logo Shield (scaled and positioned) -->
+  <g transform="translate(100, 215) scale(1.0)">
+    <g transform="translate(5, 5)">
+      <path fill="url(#shieldGloss)" d="M 95,185 C 155,185 180,145 180,105 L 180,55 L 145,55 L 115,25 L 55,25 L 20,60 L 20,105 C 20,145 45,185 95,185 Z"/>
+      <g opacity="0.4">
+        <rect x="50" y="75" width="40" height="4" rx="2" fill="white" />
+        <rect x="50" y="87" width="60" height="4" rx="2" fill="white" />
+        <rect x="50" y="99" width="55" height="4" rx="2" fill="white" />
+        <rect x="50" y="111" width="35" height="4" rx="2" fill="white" />
+      </g>
+      <g>
+        <path fill="url(#goldEdge)" d="M 75,120 L 100,145 L 155,80 L 144,70 L 100,122 L 86,108 L 75,120 Z"/>
+        <path fill="url(#goldFace)" d="M 77,118 L 100,141 L 151,80 L 142,72 L 100,122 L 86,108 L 77,118 Z" transform="translate(0, -2)"/>
+      </g>
+    </g>
+  </g>
+
+  <!-- Main Text -->
+  <text x="350" y="280" fill="white" font-family="system-ui, -apple-system, sans-serif" font-size="64" font-weight="700">UK Land Registry Search</text>
+
+  <!-- Subtitle -->
+  <text x="350" y="340" fill="#a1a1aa" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="400">Corporate Property Ownership Lookup</text>
+
+  <!-- Features -->
+  <g transform="translate(350, 400)">
+    <g fill="#10b981">
+      <circle cx="10" cy="10" r="6"/>
+      <text x="30" y="16" fill="#71717a" font-family="system-ui, -apple-system, sans-serif" font-size="20">Company Search</text>
+    </g>
+    <g fill="#10b981" transform="translate(220, 0)">
+      <circle cx="10" cy="10" r="6"/>
+      <text x="30" y="16" fill="#71717a" font-family="system-ui, -apple-system, sans-serif" font-size="20">Director Lookup</text>
+    </g>
+    <g fill="#10b981" transform="translate(440, 0)">
+      <circle cx="10" cy="10" r="6"/>
+      <text x="30" y="16" fill="#71717a" font-family="system-ui, -apple-system, sans-serif" font-size="20">Address Search</text>
+    </g>
+  </g>
+
+  <!-- Domain -->
+  <text x="350" y="520" fill="#2a7a85" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="600">landregistry.company</text>
+
+  <!-- Official badge -->
+  <g transform="translate(350, 550)">
+    <rect x="0" y="0" width="180" height="28" rx="14" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+    <circle cx="20" cy="14" r="4" fill="#10b981"/>
+    <text x="35" y="19" fill="#71717a" font-family="system-ui, -apple-system, sans-serif" font-size="12" text-transform="uppercase">Official UK Data Source</text>
+  </g>
+</svg>
