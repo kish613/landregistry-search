@@ -1305,6 +1305,252 @@ def verify_stripe_payment(session_id, expected_search_type, expected_search_valu
         return False, f"Error verifying payment: {str(e)}"
 
 
+@app.route('/api/search/directors', methods=['POST'])
+def api_search_directors():
+    """
+    Stage 1: Search for directors by name (FREE - no credits required).
+    Returns a list of matching individual directors from Companies House.
+    User can then select one to view their properties (Stage 2).
+    """
+    data = request.get_json()
+    director_name = data.get('director_name', '').strip()
+
+    if not director_name:
+        return jsonify({
+            'success': False,
+            'error': 'Director name is required',
+            'directors': []
+        })
+
+    if not COMPANIES_HOUSE_API_KEY or COMPANIES_HOUSE_API_KEY == 'your_api_key_here':
+        return jsonify({
+            'success': False,
+            'error': 'Companies House API key not configured. Please add your API key to env.local',
+            'directors': []
+        })
+
+    # Search for directors (no credits charged - this is just browsing)
+    officers, api_error = search_directors_from_companies_house(director_name)
+
+    if api_error:
+        return jsonify({
+            'success': False,
+            'error': api_error,
+            'directors': []
+        })
+
+    if not officers:
+        # No individual officers found - suggest trying company name search instead
+        all_company_names = get_all_unique_company_names()
+        matches = process.extract(
+            director_name,
+            all_company_names,
+            scorer=fuzz.WRatio,
+            limit=5
+        )
+        suggestions = [{'name': m[0], 'similarity': round(m[1], 1)} for m in matches if m[1] >= 60]
+        return jsonify({
+            'success': False,
+            'error': 'No individual directors found matching this name. Try searching by company name instead.',
+            'directors': [],
+            'suggestions': suggestions
+        })
+
+    # Format directors for display
+    directors_list = []
+    for officer in officers:
+        # Format date of birth for display
+        dob = officer.get('date_of_birth', {})
+        dob_display = ''
+        if dob:
+            month = dob.get('month', '')
+            year = dob.get('year', '')
+            if month and year:
+                month_names = ['', 'January', 'February', 'March', 'April', 'May', 'June',
+                               'July', 'August', 'September', 'October', 'November', 'December']
+                month_name = month_names[int(month)] if 1 <= int(month) <= 12 else str(month)
+                dob_display = f"{month_name} {year}"
+            elif year:
+                dob_display = str(year)
+
+        # Format address for display
+        address = officer.get('address', {})
+        address_parts = []
+        if address.get('premises'):
+            address_parts.append(address['premises'])
+        if address.get('address_line_1'):
+            address_parts.append(address['address_line_1'])
+        if address.get('locality'):
+            address_parts.append(address['locality'])
+        if address.get('postal_code'):
+            address_parts.append(address['postal_code'])
+        address_display = ', '.join(address_parts) if address_parts else ''
+
+        directors_list.append({
+            'name': officer.get('name', ''),
+            'date_of_birth': dob_display,
+            'address': address_display,
+            'appointment_count': officer.get('appointment_count', 0),
+            'officer_id': officer.get('links', {}).get('self', ''),
+            'description': officer.get('description', '')
+        })
+
+    return jsonify({
+        'success': True,
+        'directors': directors_list,
+        'count': len(directors_list),
+        'search_term': director_name
+    })
+
+
+@app.route('/api/search/director-properties', methods=['POST'])
+def api_search_director_properties():
+    """
+    Stage 2: Get properties for a specific director (REQUIRES credits/payment).
+    Takes an officer_id and fetches their company appointments, then searches
+    the Land Registry database for properties owned by those companies.
+    """
+    data = request.get_json()
+    officer_id = data.get('officer_id', '').strip()
+    director_name = data.get('director_name', '').strip()
+    session_id = data.get('session_id')  # Stripe session ID for payment
+    use_credits = data.get('use_credits', True)
+
+    if not officer_id:
+        return jsonify({
+            'success': False,
+            'error': 'Officer ID is required',
+            'results': [],
+            'directors_found': []
+        })
+
+    # Get current user and check credits
+    user = get_current_user()
+    credit_cost = CREDIT_COSTS.get('director', 3)
+    credits_used = False
+
+    # Check if user has unlimited access
+    if user and user.get('is_unlimited'):
+        credits_used = True
+    # Try to use credits if user is logged in
+    elif user and use_credits:
+        user_credits = get_user_credits(user['id'])
+        if user_credits >= credit_cost:
+            if deduct_credits(user['id'], credit_cost, 'director', f'Director search: {director_name[:50]}'):
+                credits_used = True
+
+    # If credits weren't used, verify payment
+    if not credits_used:
+        if stripe.api_key and stripe.api_key != 'sk_test_your_secret_key_here':
+            is_valid, payment_error = verify_stripe_payment(session_id, 'director', director_name)
+            if not is_valid:
+                price_pence = SEARCH_PRICES.get('director', 300)
+                return jsonify({
+                    'success': False,
+                    'error': payment_error if not user else 'Insufficient credits. Please add more credits or pay for this search.',
+                    'payment_required': True,
+                    'price_pence': price_pence,
+                    'price_display': f'£{price_pence / 100:.2f}',
+                    'credit_cost': credit_cost,
+                    'user_credits': get_user_credits(user['id']) if user else 0,
+                    'results': [],
+                    'directors_found': []
+                })
+
+    # Get updated credits after potential deduction
+    remaining_credits = get_user_credits(user['id']) if user else 0
+
+    # Fetch company appointments for this officer
+    appointments = get_officer_appointments(officer_id)
+
+    if not appointments:
+        return jsonify({
+            'success': True,
+            'results': [],
+            'directors_found': [],
+            'count': 0,
+            'message': 'This director has no company appointments in the registry.',
+            'credits_used': credits_used,
+            'remaining_credits': remaining_credits
+        })
+
+    # Build directors_found list and collect company numbers
+    directors_found = []
+    all_company_numbers = set()
+
+    for appt in appointments:
+        company_num = appt.get('company_number', '').strip()
+        if company_num:
+            all_company_numbers.add(company_num)
+            directors_found.append({
+                'director_name': director_name,
+                'company_number': company_num,
+                'company_name': appt.get('company_name', ''),
+                'officer_role': appt.get('officer_role', ''),
+                'appointed_on': appt.get('appointed_on', ''),
+                'resigned_on': appt.get('resigned_on', ''),
+                'company_status': appt.get('company_status', '')
+            })
+
+    if not all_company_numbers:
+        return jsonify({
+            'success': True,
+            'results': [],
+            'directors_found': directors_found,
+            'count': 0,
+            'message': 'No valid company numbers found for this director.',
+            'credits_used': credits_used,
+            'remaining_credits': remaining_credits
+        })
+
+    # Search Land Registry database for properties owned by these companies
+    conn = get_db_connection()
+    cursor = dict_cursor(conn)
+
+    placeholders = ','.join(['%s'] * len(all_company_numbers))
+    company_list = list(all_company_numbers)
+
+    cursor.execute(f"""
+        SELECT
+            p.id,
+            p.title_number,
+            p.tenure,
+            p.property_address,
+            p.district,
+            p.county,
+            p.region,
+            p.postcode,
+            p.price_paid,
+            p.date_proprietor_added,
+            pr.proprietor_name,
+            pr.proprietorship_category,
+            pr.address_line_1,
+            pr.address_line_2,
+            pr.address_line_3,
+            pr.company_registration_no
+        FROM properties p
+        INNER JOIN proprietors pr ON p.id = pr.property_id
+        WHERE UPPER(REPLACE(REPLACE(REPLACE(REPLACE(TRIM(pr.company_registration_no), '(', ''), ')', ''), ' ', ''), '-', ''))
+              IN ({placeholders})
+        ORDER BY pr.proprietor_name, p.property_address
+        LIMIT 500
+    """, [cn.upper().replace('(', '').replace(')', '').replace(' ', '').replace('-', '') for cn in company_list])
+
+    results = cursor.fetchall()
+    conn.close()
+
+    return jsonify({
+        'success': True,
+        'results': [dict(row) for row in results],
+        'directors_found': directors_found,
+        'count': len(results),
+        'search_type': 'director',
+        'director_name': director_name,
+        'credits_used': credits_used,
+        'remaining_credits': remaining_credits
+    })
+
+
 @app.route('/api/search', methods=['POST'])
 def api_search():
     """API endpoint for searching properties"""
