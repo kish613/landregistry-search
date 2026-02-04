@@ -59,6 +59,16 @@ BASE_URL = os.environ.get('BASE_URL', 'http://localhost:5000')
 # Google Analytics 4 Measurement ID (optional)
 app.config['GA4_MEASUREMENT_ID'] = os.environ.get('GA4_MEASUREMENT_ID')
 
+# Google AdSense Configuration (optional)
+ADSENSE_CLIENT_ID = os.environ.get('ADSENSE_CLIENT_ID', 'ca-pub-4449077771563775').strip()
+ADSENSE_PUBLISHER_ID = os.environ.get('ADSENSE_PUBLISHER_ID', 'pub-4449077771563775').strip()
+ADSENSE_SLOT_SEARCH_TOP = os.environ.get('ADSENSE_SLOT_SEARCH_TOP', '').strip()
+ADSENSE_SLOT_SEARCH_BOTTOM = os.environ.get('ADSENSE_SLOT_SEARCH_BOTTOM', '').strip()
+ADSENSE_SLOT_LANDING = os.environ.get('ADSENSE_SLOT_LANDING', '').strip()
+if not ADSENSE_PUBLISHER_ID and ADSENSE_CLIENT_ID.startswith('ca-pub-'):
+    ADSENSE_PUBLISHER_ID = ADSENSE_CLIENT_ID.replace('ca-', '', 1)
+ADSENSE_ENABLED = bool(ADSENSE_CLIENT_ID)
+
 # Credit costs for different search types
 CREDIT_COSTS = {
     'name': 1,      # 1 credit for company name search
@@ -77,6 +87,9 @@ COMPANIES_HOUSE_BASE_URL = 'https://api.company-information.service.gov.uk'
 # Stripe Configuration
 stripe.api_key = os.environ.get('STRIPE_SECRET_KEY')
 STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY')
+
+# Paywall switch (default: free access)
+PAYWALL_ENABLED = os.environ.get('PAYWALL_ENABLED', 'false').lower() in ('1', 'true', 'yes')
 
 # Pricing in pence (£1 = 100 pence, £3 = 300 pence)
 SEARCH_PRICES = {
@@ -198,6 +211,19 @@ def login_required(f):
             return redirect(url_for('auth_page'))
         return f(*args, **kwargs)
     return decorated_function
+
+
+@app.context_processor
+def inject_global_settings():
+    """Inject global template settings"""
+    return {
+        'adsense_enabled': ADSENSE_ENABLED,
+        'adsense_client_id': ADSENSE_CLIENT_ID,
+        'adsense_slot_search_top': ADSENSE_SLOT_SEARCH_TOP,
+        'adsense_slot_search_bottom': ADSENSE_SLOT_SEARCH_BOTTOM,
+        'adsense_slot_landing': ADSENSE_SLOT_LANDING,
+        'paywall_enabled': PAYWALL_ENABLED
+    }
 
 
 def create_user(email, password=None):
@@ -1134,6 +1160,23 @@ def how_to():
     return render_template('how-to.html', user=user)
 
 
+@app.route('/privacy')
+def privacy():
+    """Privacy policy page"""
+    user = get_current_user()
+    return render_template('privacy.html', user=user)
+
+
+@app.route('/ads.txt')
+def ads_txt():
+    """Serve ads.txt for AdSense verification"""
+    if ADSENSE_PUBLISHER_ID:
+        content = f"google.com, {ADSENSE_PUBLISHER_ID}, DIRECT, f08c47fec0942fa0"
+        return app.response_class(content, mimetype='text/plain')
+    ads_path = Path(app.static_folder) / 'ads.txt'
+    return send_file(ads_path, mimetype='text/plain')
+
+
 @app.route('/auth/verify')
 def verify_magic_link_route():
     """Verify magic link token and log user in"""
@@ -1339,6 +1382,12 @@ def create_checkout():
         return jsonify({
             'success': False,
             'error': 'Invalid search type'
+        }), 400
+
+    if not PAYWALL_ENABLED:
+        return jsonify({
+            'success': False,
+            'error': 'Payments are disabled. Searches are free.'
         }), 400
     
     # Check if Stripe is configured
@@ -1577,33 +1626,34 @@ def api_search_director_properties():
     credit_cost = CREDIT_COSTS.get('director', 3)
     credits_used = False
 
-    # Check if user has unlimited access
-    if user and user.get('is_unlimited'):
-        credits_used = True
-    # Try to use credits if user is logged in
-    elif user and use_credits:
-        user_credits = get_user_credits(user['id'])
-        if user_credits >= credit_cost:
-            if deduct_credits(user['id'], credit_cost, 'director', f'Director search: {director_name[:50]}'):
-                credits_used = True
+    if PAYWALL_ENABLED:
+        # Check if user has unlimited access
+        if user and user.get('is_unlimited'):
+            credits_used = True
+        # Try to use credits if user is logged in
+        elif user and use_credits:
+            user_credits = get_user_credits(user['id'])
+            if user_credits >= credit_cost:
+                if deduct_credits(user['id'], credit_cost, 'director', f'Director search: {director_name[:50]}'):
+                    credits_used = True
 
-    # If credits weren't used, verify payment
-    if not credits_used:
-        if stripe.api_key and stripe.api_key != 'sk_test_your_secret_key_here':
-            is_valid, payment_error = verify_stripe_payment(session_id, 'director', director_name)
-            if not is_valid:
-                price_pence = SEARCH_PRICES.get('director', 300)
-                return jsonify({
-                    'success': False,
-                    'error': payment_error if not user else 'Insufficient credits. Please add more credits or pay for this search.',
-                    'payment_required': True,
-                    'price_pence': price_pence,
-                    'price_display': f'£{price_pence / 100:.2f}',
-                    'credit_cost': credit_cost,
-                    'user_credits': get_user_credits(user['id']) if user else 0,
-                    'results': [],
-                    'directors_found': []
-                })
+        # If credits weren't used, verify payment
+        if not credits_used:
+            if stripe.api_key and stripe.api_key != 'sk_test_your_secret_key_here':
+                is_valid, payment_error = verify_stripe_payment(session_id, 'director', director_name)
+                if not is_valid:
+                    price_pence = SEARCH_PRICES.get('director', 300)
+                    return jsonify({
+                        'success': False,
+                        'error': payment_error if not user else 'Insufficient credits. Please add more credits or pay for this search.',
+                        'payment_required': True,
+                        'price_pence': price_pence,
+                        'price_display': f'£{price_pence / 100:.2f}',
+                        'credit_cost': credit_cost,
+                        'user_credits': get_user_credits(user['id']) if user else 0,
+                        'results': [],
+                        'directors_found': []
+                    })
 
     # Get updated credits after potential deduction
     remaining_credits = get_user_credits(user['id']) if user else 0
@@ -1749,38 +1799,39 @@ def api_search():
     user = get_current_user()
     credit_cost = CREDIT_COSTS.get(search_type, 1)
     credits_used = False
-    
-    # Check if user has unlimited access (friends/family)
-    if user and user.get('is_unlimited'):
-        credits_used = True  # Unlimited users don't need credits
-    # Try to use credits first if user is logged in
-    elif user and use_credits:
-        user_credits = get_user_credits(user['id'])
-        if user_credits >= credit_cost:
-            # Deduct credits
-            if deduct_credits(user['id'], credit_cost, search_type, f'Search: {search_value[:50]}'):
-                credits_used = True
-    
-    # If credits weren't used, verify payment
-    if not credits_used:
-        # Verify payment before executing search
-        # Only require payment if Stripe is configured
-        if stripe.api_key and stripe.api_key != 'sk_test_your_secret_key_here':
-            is_valid, payment_error = verify_stripe_payment(session_id, search_type, search_value)
-            if not is_valid:
-                price_pence = SEARCH_PRICES.get(search_type, 100)
-                return jsonify({
-                    'success': False,
-                    'error': payment_error if not user else 'Insufficient credits. Please add more credits or pay for this search.',
-                    'payment_required': True,
-                    'price_pence': price_pence,
-                    'price_display': f'£{price_pence / 100:.2f}',
-                    'credit_cost': credit_cost,
-                    'user_credits': get_user_credits(user['id']) if user else 0,
-                    'results': [],
-                    'count': 0,
-                    'suggestions': []
-                })
+
+    if PAYWALL_ENABLED:
+        # Check if user has unlimited access (friends/family)
+        if user and user.get('is_unlimited'):
+            credits_used = True  # Unlimited users don't need credits
+        # Try to use credits first if user is logged in
+        elif user and use_credits:
+            user_credits = get_user_credits(user['id'])
+            if user_credits >= credit_cost:
+                # Deduct credits
+                if deduct_credits(user['id'], credit_cost, search_type, f'Search: {search_value[:50]}'):
+                    credits_used = True
+
+        # If credits weren't used, verify payment
+        if not credits_used:
+            # Verify payment before executing search
+            # Only require payment if Stripe is configured
+            if stripe.api_key and stripe.api_key != 'sk_test_your_secret_key_here':
+                is_valid, payment_error = verify_stripe_payment(session_id, search_type, search_value)
+                if not is_valid:
+                    price_pence = SEARCH_PRICES.get(search_type, 100)
+                    return jsonify({
+                        'success': False,
+                        'error': payment_error if not user else 'Insufficient credits. Please add more credits or pay for this search.',
+                        'payment_required': True,
+                        'price_pence': price_pence,
+                        'price_display': f'£{price_pence / 100:.2f}',
+                        'credit_cost': credit_cost,
+                        'user_credits': get_user_credits(user['id']) if user else 0,
+                        'results': [],
+                        'count': 0,
+                        'suggestions': []
+                    })
     
     # Get updated credits after potential deduction
     remaining_credits = get_user_credits(user['id']) if user else 0

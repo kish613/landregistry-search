@@ -47,6 +47,12 @@
         gtag('js', new Date());
         gtag('config', 'G-FQ3GSEPRC2');
     </script>
+    {% if adsense_enabled %}
+    <script>
+        window.__adsConsent = localStorage.getItem('adsConsent') || 'npa';
+    </script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={{ adsense_client_id }}" crossorigin="anonymous"></script>
+    {% endif %}
     <style>
         body {
             font-family: 'Geist', system-ui, sans-serif;
@@ -230,6 +236,34 @@
             animation: logoPulse 2s ease-in-out 1s;
         }
         /* ========== END LOGO STYLES ========== */
+        .ad-slot {
+            background: rgba(24, 24, 27, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 16px;
+        }
+        .ad-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            color: #71717a;
+            margin-bottom: 8px;
+        }
+        .consent-banner {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            z-index: 200;
+            background: rgba(9, 9, 11, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 16px;
+            backdrop-filter: blur(16px);
+        }
+        .consent-actions button {
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
     </style>
 </head>
 <body class="antialiased selection:bg-white/10 selection:text-white overflow-x-hidden text-zinc-400">
@@ -378,20 +412,11 @@
 
             <div class="flex items-center gap-4">
                 {% if user %}
-                <!-- Logged in user -->
                 <div class="flex items-center gap-3">
-                    {% if user.is_unlimited %}
-                    <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-900/30 border border-emerald-500/30">
-                        <iconify-icon icon="solar:infinity-linear" width="16" class="text-emerald-400"></iconify-icon>
-                        <span class="text-sm font-medium text-emerald-400">Unlimited</span>
-                    </div>
-                    {% else %}
                     <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900/80 border border-white/10">
-                        <iconify-icon icon="solar:star-bold" width="14" class="text-amber-400"></iconify-icon>
-                        <span class="text-sm font-medium text-white">{{ user.credits }}</span>
-                        <span class="text-xs text-zinc-500">credits</span>
+                        <iconify-icon icon="solar:user-circle-linear" width="16" class="text-emerald-400"></iconify-icon>
+                        <span class="text-sm font-medium text-white">Signed in</span>
                     </div>
-                    {% endif %}
                     <a href="/search" class="uppercase hover:bg-zinc-200 transition-all duration-300 cursor-pointer text-[10px] font-semibold text-black tracking-widest bg-white rounded-lg px-4 py-2">
                         Search
                     </a>
@@ -725,6 +750,31 @@
         </div>
     </section>
 
+    {% if adsense_enabled and adsense_slot_landing %}
+    <section class="bg-zinc-950 border-t border-white/5 py-16">
+        <div class="max-w-5xl mx-auto px-6">
+            <div class="ad-slot">
+                <div class="ad-label">Advertisement</div>
+                <ins class="adsbygoogle"
+                     style="display:block"
+                     data-ad-client="{{ adsense_client_id }}"
+                     data-ad-slot="{{ adsense_slot_landing }}"
+                     data-ad-format="auto"
+                     data-full-width-responsive="true"></ins>
+                <script>
+                    (function() {
+                        const consent = window.__adsConsent || 'npa';
+                        if (consent === 'npa') {
+                            document.currentScript.previousElementSibling.setAttribute('data-npa', '1');
+                        }
+                    })();
+                    (adsbygoogle = window.adsbygoogle || []).push({});
+                </script>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
     <!-- CTA Section -->
     <section class="bg-zinc-950 border-t border-white/5 py-32">
         <div class="max-w-3xl mx-auto px-6 text-center">
@@ -732,7 +782,7 @@
                 Ready to Search?
             </h2>
             <p class="text-zinc-400 text-lg mb-10 max-w-xl mx-auto">
-                Start exploring corporate land ownership data. From just £1 per search.
+                Start exploring corporate land ownership data for free, supported by ads.
             </p>
             <a href="/search" class="inline-flex items-center gap-3 bg-white text-black rounded-full px-10 py-5 hover:bg-zinc-200 transition-all shadow-[0_0_40px_rgba(255,255,255,0.15)] hover:shadow-[0_0_60px_rgba(255,255,255,0.25)] group">
                 <span class="text-sm tracking-wider uppercase font-semibold">
@@ -754,7 +804,7 @@
                         LandRegistry.company
                     </h3>
                     <p class="leading-relaxed mb-6 text-xs text-zinc-500">
-                        Corporate land ownership search for England and Wales. £1 per search, £3 for director searches.
+                        Free corporate land ownership search for England and Wales, supported by advertising.
                     </p>
                 </div>
 
@@ -789,6 +839,7 @@
                     <ul class="space-y-3 text-xs tracking-wide">
                         <li><a href="/about" class="hover:text-white transition-colors">About</a></li>
                         <li><a href="/faq" class="hover:text-white transition-colors">FAQ</a></li>
+                        <li><a href="/privacy" class="hover:text-white transition-colors">Privacy</a></li>
                     </ul>
                 </div>
             </div>
@@ -804,6 +855,21 @@
         </div>
     </footer>
 
+    {% if adsense_enabled %}
+    <div id="adsConsentBanner" class="consent-banner hidden">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 text-sm text-zinc-300">
+            <div>
+                We use cookies for ads and analytics. Choose personalized ads or continue with non-personalized ads.
+                <a href="/privacy" class="underline hover:text-white">Learn more</a>.
+            </div>
+            <div class="consent-actions flex flex-wrap gap-2">
+                <button type="button" id="adsAccept" class="bg-white text-black rounded-lg px-4 py-2 text-xs font-semibold">Accept personalized</button>
+                <button type="button" id="adsDecline" class="bg-zinc-900 text-zinc-200 rounded-lg px-4 py-2 text-xs font-semibold">Non-personalized</button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Schema.org JSON-LD -->
     <script type="application/ld+json">
     {
@@ -814,34 +880,10 @@
       "description": "Search UK corporate land ownership by company name, number, or address using official CCOD data from HM Land Registry",
       "url": "https://landregistry.company",
       "offers": {
-        "@type": "AggregateOffer",
+        "@type": "Offer",
+        "price": "0",
         "priceCurrency": "GBP",
-        "lowPrice": "1.00",
-        "highPrice": "3.00",
-        "offerCount": "3",
-        "offers": [
-          {
-            "@type": "Offer",
-            "name": "Standard Search",
-            "description": "Search by company name, number, or address",
-            "price": "1.00",
-            "priceCurrency": "GBP"
-          },
-          {
-            "@type": "Offer",
-            "name": "Director Search",
-            "description": "Search properties by director name",
-            "price": "3.00",
-            "priceCurrency": "GBP"
-          },
-          {
-            "@type": "Offer",
-            "name": "Free Trial",
-            "description": "10 free credits for new users",
-            "price": "0",
-            "priceCurrency": "GBP"
-          }
-        ]
+        "description": "Free access (ad-supported)"
       },
       "featureList": [
         "Fast search by company name",
@@ -896,5 +938,27 @@
             });
         });
     </script>
+    {% if adsense_enabled %}
+    <script>
+        (function() {
+            const banner = document.getElementById('adsConsentBanner');
+            if (!banner) return;
+            const saved = localStorage.getItem('adsConsent');
+            if (!saved) {
+                banner.classList.remove('hidden');
+            }
+            const acceptBtn = document.getElementById('adsAccept');
+            const declineBtn = document.getElementById('adsDecline');
+            const setConsent = (value) => {
+                localStorage.setItem('adsConsent', value);
+                window.__adsConsent = value;
+                banner.classList.add('hidden');
+                window.location.reload();
+            };
+            if (acceptBtn) acceptBtn.addEventListener('click', () => setConsent('personalized'));
+            if (declineBtn) declineBtn.addEventListener('click', () => setConsent('npa'));
+        })();
+    </script>
+    {% endif %}
 </body>
 </html>
