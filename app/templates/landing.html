@@ -3,25 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Free UK land registry search tool. Find properties owned by companies using company name, number, or address. Instant CCOD database search with export options.">
+    <meta name="description" content="100% free UK land registry search tool — ad-supported, no fees. Find corporate property ownership by company name, number, director, or address. Search 3.8M+ CCOD records with free CSV and JSON export.">
     <meta name="robots" content="index, follow">
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://landregistry.company/">
-    <meta property="og:title" content="UK Land Registry Search | Corporate Property Ownership Lookup">
-    <meta property="og:description" content="Free UK land registry search tool. Find properties owned by companies using company name, number, or address. Instant CCOD database search with export options.">
+    <meta property="og:title" content="Free UK Land Registry Search | Corporate Property Ownership Lookup">
+    <meta property="og:description" content="100% free, ad-supported UK land registry search. Find corporate property ownership by company name, number, director, or address. 3.8M+ CCOD records with free export.">
     <meta property="og:site_name" content="UK Land Registry Search">
     <meta property="og:image" content="https://landregistry.company/static/og-image.png">
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:url" content="https://landregistry.company/">
-    <meta name="twitter:title" content="UK Land Registry Search | Corporate Property Ownership Lookup">
-    <meta name="twitter:description" content="Free UK land registry search tool. Find properties owned by companies using company name, number, or address.">
+    <meta name="twitter:title" content="Free UK Land Registry Search | Corporate Property Ownership Lookup">
+    <meta name="twitter:description" content="100% free, ad-supported UK land registry search. Find corporate property ownership by company name, number, director, or address.">
     <meta name="twitter:image" content="https://landregistry.company/static/og-image.png">
 
-    <title>UK Land Registry Search | Corporate Property Ownership Lookup</title>
+    <title>Free UK Land Registry Search | Corporate Property Ownership Lookup</title>
     <link rel="canonical" href="https://landregistry.company/">
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
     <link rel="alternate icon" href="{{ url_for('static', filename='favicon.ico') }}">
@@ -463,7 +463,7 @@
                 </h1>
 
                 <p class="md:text-xl leading-relaxed text-lg font-light text-zinc-400 max-w-2xl mx-auto mb-12 animate-fade-in opacity-0" style="animation-delay: 0.4s">
-                    The authoritative database for corporate land ownership in England and Wales. Search property interests by company name, registration number, or site address.
+                    The authoritative database for corporate land ownership in England and Wales. Completely free and ad-supported — search by company name, registration number, director, or site address.
                 </p>
 
                 <!-- CTA Buttons -->
@@ -481,12 +481,16 @@
                 </div>
 
                 <!-- Stats Row -->
-                <div class="mt-20 grid grid-cols-3 gap-8 max-w-2xl mx-auto animate-fade-in opacity-0" style="animation-delay: 0.8s">
+                <div class="mt-20 grid grid-cols-4 gap-8 max-w-3xl mx-auto animate-fade-in opacity-0" style="animation-delay: 0.8s">
                     <div class="text-center">
+                        <div class="text-3xl md:text-4xl text-emerald-400 font-medium mb-2">Free</div>
+                        <div class="text-[10px] uppercase tracking-widest text-zinc-500">Ad-Supported</div>
+                    </div>
+                    <div class="text-center border-x border-white/10">
                         <div class="text-3xl md:text-4xl text-white font-medium mb-2">3.8M+</div>
                         <div class="text-[10px] uppercase tracking-widest text-zinc-500">Property Records</div>
                     </div>
-                    <div class="text-center border-x border-white/10">
+                    <div class="text-center border-r border-white/10">
                         <div class="text-3xl md:text-4xl text-white font-medium mb-2">Daily</div>
                         <div class="text-[10px] uppercase tracking-widest text-zinc-500">Data Updates</div>
                     </div>
@@ -877,25 +881,29 @@
       "@type": "WebApplication",
       "name": "UK Land Registry Corporate Search",
       "applicationCategory": "BusinessApplication",
-      "description": "Search UK corporate land ownership by company name, number, or address using official CCOD data from HM Land Registry",
+      "description": "Free, ad-supported UK land registry search tool. Search 3.8M+ corporate property ownership records by company name, number, director, or address using official CCOD data from HM Land Registry.",
       "url": "https://landregistry.company",
       "offers": {
         "@type": "Offer",
         "price": "0",
         "priceCurrency": "GBP",
-        "description": "Free access (ad-supported)"
+        "availability": "https://schema.org/InStock",
+        "description": "Completely free — supported by advertising. No subscription or payment required."
       },
       "featureList": [
-        "Fast search by company name",
-        "Company number lookup",
-        "Director search",
-        "Address and postcode search",
-        "CSV export",
-        "JSON export",
-        "Official CCOD data"
+        "Free search by company name",
+        "Free company number lookup",
+        "Free director search",
+        "Free address and postcode search",
+        "Free CSV export",
+        "Free JSON export",
+        "Official CCOD data from HM Land Registry",
+        "3.8M+ property records",
+        "No subscription required"
       ],
       "operatingSystem": "Web Browser",
-      "browserRequirements": "Requires JavaScript"
+      "browserRequirements": "Requires JavaScript",
+      "isAccessibleForFree": true
     }
     </script>
 
