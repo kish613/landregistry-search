@@ -395,6 +395,42 @@ footer {
     color: var(--text-primary);
 }
 
+/* IntelTree Logo Animation */
+.footer-logo-link:hover .inteltree-bars .bar {
+    animation: barGrow 0.3s ease forwards;
+}
+.footer-logo-link:hover .inteltree-bars .bar-1 {
+    animation-delay: 0s;
+}
+.footer-logo-link:hover .inteltree-bars .bar-2 {
+    animation-delay: 0.05s;
+}
+.footer-logo-link:hover .inteltree-bars .bar-3 {
+    animation-delay: 0.1s;
+}
+.footer-logo-link:hover .inteltree-bars .bar-4 {
+    animation-delay: 0.15s;
+}
+.footer-logo-link:hover .inteltree-bars .bar-5 {
+    animation-delay: 0.2s;
+}
+.footer-logo-link:hover .inteltree-bars .bar-6 {
+    animation-delay: 0.25s;
+}
+.footer-logo-link:hover .inteltree-text {
+    fill: #4fd1c5;
+    transition: fill 0.3s ease;
+}
+
+@keyframes barGrow {
+    0% {
+        transform: translateY(0);
+    }
+    100% {
+        transform: translateY(-5px);
+    }
+}
+
 /* Loading state */
 .btn-loader {
     display: inline-block;

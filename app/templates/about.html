@@ -474,9 +474,30 @@
                     <a href="/privacy" class="hover:text-white transition-colors">Privacy</a>
                 </div>
             </div>
-            <p class="text-center text-[10px] uppercase tracking-widest text-zinc-500 pt-6 mt-4 border-t border-white/5">
-                Developed by <a href="https://inteltree.co.uk" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">IntelTree LTD</a>
-            </p>
+            <div class="text-center text-[10px] uppercase tracking-widest text-zinc-500 pt-6 mt-4 border-t border-white/5 flex items-center justify-center gap-2">
+                <span>Developed by</span>
+                <a href="https://inteltree.co.uk" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors flex items-center gap-1.5 group">
+                    <svg viewBox="0 0 300 250" xmlns="http://www.w3.org/2000/svg" class="w-8 h-8">
+                        <defs>
+                            <linearGradient id="barGradient-about" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" style="stop-color:#FFFFFF; stop-opacity:1" />
+                                <stop offset="60%" style="stop-color:#F0F0F0; stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#D0D0D0; stop-opacity:1" />
+                            </linearGradient>
+                        </defs>
+                        <g>
+                            <rect x="50" y="150" width="25" height="30" fill="url(#barGradient-about)" rx="5" class="transition-all duration-300 group-hover:y-[145]" style="transform-origin: center bottom; transition: transform 0.3s ease;" />
+                            <rect x="85" y="130" width="25" height="50" fill="url(#barGradient-about)" rx="5" class="transition-all duration-300 group-hover:y-[120]" style="transform-origin: center bottom; transition: transform 0.3s ease 0.05s;" />
+                            <rect x="120" y="110" width="25" height="70" fill="url(#barGradient-about)" rx="5" class="transition-all duration-300 group-hover:y-[95]" style="transform-origin: center bottom; transition: transform 0.3s ease 0.1s;" />
+                            <rect x="155" y="100" width="25" height="80" fill="url(#barGradient-about)" rx="5" class="transition-all duration-300 group-hover:y-[80]" style="transform-origin: center bottom; transition: transform 0.3s ease 0.15s;" />
+                            <rect x="190" y="80" width="25" height="100" fill="url(#barGradient-about)" rx="5" class="transition-all duration-300 group-hover:y-[60]" style="transform-origin: center bottom; transition: transform 0.3s ease 0.2s;" />
+                            <rect x="225" y="60" width="25" height="120" fill="url(#barGradient-about)" rx="5" class="transition-all duration-300 group-hover:y-[40]" style="transform-origin: center bottom; transition: transform 0.3s ease 0.25s;" />
+                        </g>
+                        <text x="150" y="215" font-family="sans-serif" font-size="28" font-weight="bold" fill="#FFFFFF" text-anchor="middle" letter-spacing="2" class="transition-all duration-300 group-hover:fill-[#4fd1c5]">INTELTREE</text>
+                    </svg>
+                    <span>IntelTree LTD</span>
+                </a>
+            </div>
         </div>
     </footer>
 
