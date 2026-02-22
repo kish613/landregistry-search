@@ -135,3 +135,37 @@ CREATE INDEX IF NOT EXISTS idx_password_reset_token ON password_reset_tokens(tok
 -- Note: Requires pg_trgm extension: CREATE EXTENSION IF NOT EXISTS pg_trgm;
 -- See scripts/migrate_add_indexes.py for migration script.
 
+-- ============================================
+-- SEARCH HISTORY TABLE
+-- ============================================
+
+-- Search history for logged-in users
+CREATE TABLE IF NOT EXISTS search_history (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    search_type VARCHAR(50) NOT NULL,  -- 'name', 'number', 'address', 'director'
+    search_value TEXT NOT NULL,
+    result_count INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_search_history_user_id ON search_history(user_id);
+CREATE INDEX IF NOT EXISTS idx_search_history_created_at ON search_history(created_at);
+
+-- ============================================
+-- RATE LIMITING TABLE
+-- ============================================
+
+-- Rate limiting tracking per IP and user
+CREATE TABLE IF NOT EXISTS rate_limits (
+    id SERIAL PRIMARY KEY,
+    identifier VARCHAR(255) NOT NULL,  -- IP address or 'user:<id>'
+    endpoint VARCHAR(100) NOT NULL,     -- e.g. '/api/search', '/api/auth/login'
+    request_count INTEGER DEFAULT 1,
+    window_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(identifier, endpoint, window_start)
+);
+
+CREATE INDEX IF NOT EXISTS idx_rate_limits_identifier ON rate_limits(identifier, endpoint);
+CREATE INDEX IF NOT EXISTS idx_rate_limits_window ON rate_limits(window_start);
+

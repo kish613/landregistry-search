@@ -34,6 +34,11 @@
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    <!-- Leaflet for map view -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <!-- vis-network for graph visualization -->
+    <script src="https://unpkg.com/vis-network@9.1.6/standalone/umd/vis-network.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -320,6 +325,113 @@
             display: block !important;
         }
         /* ========== END DIRECTOR SELECTION STYLES ========== */
+
+        /* ========== MAP VIEW STYLES ========== */
+        #mapContainer {
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        #mapView {
+            height: 400px;
+            width: 100%;
+            background: #18181b;
+        }
+        .leaflet-container {
+            background: #18181b;
+        }
+        /* Dark mode tile filter */
+        .leaflet-tile-pane {
+            filter: invert(1) hue-rotate(180deg) brightness(0.8) contrast(1.2);
+        }
+        .map-toggle-btn.active {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: rgba(59, 130, 246, 0.4);
+            color: #60a5fa;
+        }
+        /* ========== END MAP VIEW STYLES ========== */
+
+        /* ========== NETWORK GRAPH STYLES ========== */
+        #networkGraphContainer {
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        #networkGraph {
+            height: 450px;
+            width: 100%;
+            background: #09090b;
+        }
+        /* ========== END NETWORK GRAPH STYLES ========== */
+
+        /* ========== PAGINATION STYLES ========== */
+        .pagination-btn {
+            min-width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .pagination-btn:hover:not(:disabled) {
+            background: rgba(255,255,255,0.1);
+            color: white;
+        }
+        .pagination-btn.active {
+            background: white;
+            color: black;
+        }
+        .pagination-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+        /* ========== END PAGINATION STYLES ========== */
+
+        /* ========== SEARCH HISTORY STYLES ========== */
+        .history-item {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .history-item:hover {
+            background: rgba(255,255,255,0.05);
+            border-color: rgba(255,255,255,0.15);
+        }
+        /* ========== END SEARCH HISTORY STYLES ========== */
+
+        /* ========== RELATED COMPANIES STYLES ========== */
+        .related-company-card {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .related-company-card:hover {
+            background: rgba(59, 130, 246, 0.1);
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+        /* ========== END RELATED COMPANIES STYLES ========== */
+
+        /* ========== TAB STYLES ========== */
+        .view-tab {
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            transition: all 0.2s;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+        .view-tab:hover {
+            background: rgba(255,255,255,0.05);
+        }
+        .view-tab.active {
+            background: white;
+            color: black;
+        }
+        /* ========== END TAB STYLES ========== */
     </style>
 </head>
 <body class="antialiased selection:bg-white/10 selection:text-white overflow-x-hidden text-zinc-400">
@@ -689,6 +801,22 @@
                 </form>
             </div>
 
+            <!-- Search History Section (logged-in users) -->
+            {% if user %}
+            <div id="searchHistorySection" class="glass-panel rounded-2xl p-6 mb-8 hidden">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-white font-medium flex items-center gap-2">
+                        <iconify-icon icon="solar:history-linear" width="18" class="text-zinc-400"></iconify-icon>
+                        Recent Searches
+                    </h3>
+                    <button onclick="toggleSearchHistory()" class="text-xs text-zinc-500 hover:text-white transition-colors">
+                        <iconify-icon icon="solar:close-circle-linear" width="16"></iconify-icon>
+                    </button>
+                </div>
+                <div id="searchHistoryList" class="space-y-2"></div>
+            </div>
+            {% endif %}
+
             <!-- Results Section -->
             <div id="resultsSection" class="hidden">
                 <!-- Results Header -->
@@ -697,7 +825,16 @@
                         <h2 class="text-xl text-white font-medium" id="resultsTitle">Search Results</h2>
                         <p class="text-zinc-500 text-sm" id="resultsCount"></p>
                     </div>
-                    <div class="flex gap-2">
+                    <div class="flex flex-wrap gap-2">
+                        <!-- View Mode Tabs -->
+                        <div class="flex gap-1 mr-2 bg-zinc-900 rounded-lg p-0.5 border border-white/5">
+                            <button class="view-tab active" data-view="list" onclick="switchView('list')">
+                                <iconify-icon icon="solar:list-linear" width="14" class="mr-1"></iconify-icon>List
+                            </button>
+                            <button class="view-tab" data-view="map" onclick="switchView('map')">
+                                <iconify-icon icon="solar:map-linear" width="14" class="mr-1"></iconify-icon>Map
+                            </button>
+                        </div>
                         <button id="exportCsvBtn" class="px-4 py-2 rounded-lg bg-zinc-900 border border-white/10 text-zinc-400 hover:text-white hover:border-white/20 transition-all text-xs uppercase tracking-wider font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                             <iconify-icon id="csvIcon" icon="solar:document-text-linear" width="14"></iconify-icon>
                             <iconify-icon id="csvSpinner" icon="svg-spinners:ring-resize" width="14" class="hidden"></iconify-icon>
@@ -711,8 +848,79 @@
                     </div>
                 </div>
 
-                <!-- Results List -->
+                <!-- Results List View -->
                 <div id="resultsList" class="space-y-4"></div>
+
+                <!-- Map View -->
+                <div id="mapViewSection" class="hidden mb-6">
+                    <div id="mapContainer">
+                        <div id="mapView"></div>
+                    </div>
+                    <p class="text-zinc-600 text-xs mt-2 text-center">Properties plotted by postcode. Zoom and pan to explore.</p>
+                </div>
+
+                <!-- Pagination Controls -->
+                <div id="paginationControls" class="hidden mt-8">
+                    <div class="flex items-center justify-center gap-2">
+                        <button id="prevPageBtn" class="pagination-btn bg-zinc-900 border border-white/10 text-zinc-400" onclick="goToPage('prev')">
+                            <iconify-icon icon="solar:arrow-left-linear" width="16"></iconify-icon>
+                        </button>
+                        <div id="pageNumbers" class="flex gap-1"></div>
+                        <button id="nextPageBtn" class="pagination-btn bg-zinc-900 border border-white/10 text-zinc-400" onclick="goToPage('next')">
+                            <iconify-icon icon="solar:arrow-right-linear" width="16"></iconify-icon>
+                        </button>
+                    </div>
+                    <p id="paginationInfo" class="text-zinc-600 text-xs text-center mt-3"></p>
+                </div>
+            </div>
+
+            <!-- Related Companies Section -->
+            <div id="relatedCompaniesSection" class="hidden mt-8">
+                <div class="glass-panel rounded-xl p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-white font-medium flex items-center gap-2">
+                            <iconify-icon icon="solar:buildings-3-linear" width="18" class="text-blue-400"></iconify-icon>
+                            <span id="relatedCompaniesTitle">Related Companies</span>
+                        </h3>
+                        <span class="text-[10px] text-zinc-500 uppercase tracking-widest">Same Registered Address</span>
+                    </div>
+                    <div id="relatedCompaniesList" class="space-y-2"></div>
+                </div>
+            </div>
+
+            <!-- Company Group Detection Section -->
+            <div id="companyGroupSection" class="hidden mt-4">
+                <div class="glass-panel rounded-xl p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-white font-medium flex items-center gap-2">
+                            <iconify-icon icon="solar:share-circle-linear" width="18" class="text-purple-400"></iconify-icon>
+                            <span id="companyGroupTitle">Corporate Group</span>
+                        </h3>
+                        <span class="text-[10px] text-zinc-500 uppercase tracking-widest">Possible Affiliates</span>
+                    </div>
+                    <div id="companyGroupList" class="space-y-2"></div>
+                </div>
+            </div>
+
+            <!-- Network Graph Section -->
+            <div id="networkGraphSection" class="hidden mt-4">
+                <div class="glass-panel rounded-xl p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-white font-medium flex items-center gap-2">
+                            <iconify-icon icon="solar:graph-new-linear" width="18" class="text-cyan-400"></iconify-icon>
+                            Network Graph
+                        </h3>
+                        <div class="flex items-center gap-3 text-[10px] text-zinc-500">
+                            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-blue-500 inline-block"></span> Company</span>
+                            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span> Property</span>
+                            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-500 inline-block"></span> Related</span>
+                        </div>
+                    </div>
+                    <div id="networkGraphContainer">
+                        <div id="networkGraph"></div>
+                    </div>
+                    <p class="text-zinc-600 text-xs mt-2 text-center">Drag nodes to rearrange. Scroll to zoom.</p>
+                </div>
             </div>
 
             <!-- Director Selection Section (Stage 1 - Select a director) -->
@@ -865,6 +1073,18 @@
         let lastSearchValue = '';
         let lastSearchResults = []; // Store results for fast client-side export
 
+        // Pagination state
+        let currentPage = 1;
+        let totalPages = 1;
+        let totalResults = 0;
+        let perPage = 50;
+        let currentPagination = null;
+
+        // View state
+        let currentView = 'list'; // 'list' or 'map'
+        let mapInstance = null;
+        let mapMarkers = [];
+
         // Two-stage director search state
         let directorSearchResults = [];     // List of directors from Stage 1
         let selectedDirector = null;        // Currently selected director
@@ -878,6 +1098,99 @@
             } catch (error) {
                 console.error('Logout failed:', error);
             }
+        }
+
+        // ====================================
+        // SEARCH HISTORY
+        // ====================================
+        let searchHistoryVisible = false;
+
+        async function loadSearchHistory() {
+            if (!isLoggedIn) return;
+            try {
+                const response = await fetch('/api/search/history?limit=10');
+                const data = await response.json();
+                if (data.success && data.history && data.history.length > 0) {
+                    const section = document.getElementById('searchHistorySection');
+                    const list = document.getElementById('searchHistoryList');
+                    if (!section || !list) return;
+
+                    const typeIcons = {
+                        name: 'solar:buildings-2-linear',
+                        number: 'solar:hashtag-linear',
+                        director: 'solar:user-bold',
+                        address: 'solar:map-point-linear'
+                    };
+                    const typeLabels = { name: 'Company Name', number: 'Company Number', director: 'Director', address: 'Address' };
+
+                    list.innerHTML = data.history.map(h => {
+                        const icon = typeIcons[h.search_type] || 'solar:magnifer-linear';
+                        const label = typeLabels[h.search_type] || h.search_type;
+                        const timeAgo = formatTimeAgo(h.created_at);
+                        return `
+                            <div class="history-item flex items-center gap-3 p-3 rounded-lg border border-white/5"
+                                 onclick="rerunSearch('${escapeAttr(h.search_type)}', '${escapeAttr(h.search_value)}')">
+                                <div class="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">
+                                    <iconify-icon icon="${icon}" width="14" class="text-zinc-400"></iconify-icon>
+                                </div>
+                                <div class="flex-grow min-w-0">
+                                    <div class="text-sm text-white truncate">${escapeHtml(h.search_value)}</div>
+                                    <div class="text-xs text-zinc-500">${escapeHtml(label)} &middot; ${h.result_count} results &middot; ${timeAgo}</div>
+                                </div>
+                                <iconify-icon icon="solar:arrow-right-linear" width="14" class="text-zinc-600 flex-shrink-0"></iconify-icon>
+                            </div>
+                        `;
+                    }).join('');
+
+                    section.classList.remove('hidden');
+                    searchHistoryVisible = true;
+                }
+            } catch (e) {
+                console.error('Failed to load search history:', e);
+            }
+        }
+
+        function toggleSearchHistory() {
+            const section = document.getElementById('searchHistorySection');
+            if (section) {
+                section.classList.toggle('hidden');
+                searchHistoryVisible = !section.classList.contains('hidden');
+            }
+        }
+
+        function rerunSearch(searchType, searchValue) {
+            currentSearchType = searchType;
+            searchInput.value = searchValue;
+            updateSearchTypeBtnStyles();
+            updateButtonPrice();
+            const configs = {
+                name: { label: 'Company Name' },
+                number: { label: 'Company Number' },
+                director: { label: 'Director Name' },
+                address: { label: 'Address or Postcode' }
+            };
+            if (configs[searchType]) searchLabel.textContent = configs[searchType].label;
+            searchForm.dispatchEvent(new Event('submit'));
+        }
+
+        function formatTimeAgo(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            const now = new Date();
+            const seconds = Math.floor((now - date) / 1000);
+            if (seconds < 60) return 'just now';
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return `${minutes}m ago`;
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `${hours}h ago`;
+            const days = Math.floor(hours / 24);
+            if (days < 7) return `${days}d ago`;
+            return date.toLocaleDateString();
+        }
+
+        // Load search history on page load
+        if (isLoggedIn) {
+            loadSearchHistory();
         }
 
         // Update credits display
@@ -1042,6 +1355,7 @@
 
             lastSearchType = currentSearchType;
             lastSearchValue = searchValue;
+            currentPage = 1; // Reset pagination on new search
 
             // Director search uses two-stage flow (Stage 1 is FREE)
             if (currentSearchType === 'director') {
@@ -1317,7 +1631,7 @@
 
                     // Display properties
                     if (data.results && data.results.length > 0) {
-                        displayResults(data.results, 'director', directorName);
+                        displayResults(data.results, 'director', directorName, data.pagination);
                     } else {
                         noResultsText.textContent = data.message || 'No properties found for companies linked to this director.';
                         noResults.classList.remove('hidden');
@@ -1351,8 +1665,11 @@
         // END TWO-STAGE DIRECTOR SEARCH
         // ====================================
 
-        // Execute search using credits
-        async function executeSearchWithCredits(searchType, searchValue) {
+        // Execute search using credits (with pagination support)
+        async function executeSearchWithCredits(searchType, searchValue, page) {
+            page = page || 1;
+            currentPage = page;
+
             // Show loading state
             btnText.textContent = searchType === 'director' ? 'Searching Companies House...' : 'Searching...';
             btnIcon.classList.add('hidden');
@@ -1362,7 +1679,7 @@
             if (btnPriceEl) btnPriceEl.classList.add('hidden');
             btnSpinner.classList.remove('hidden');
             searchBtn.disabled = true;
-            
+
             // Hide previous results
             hideAllMessages();
 
@@ -1373,7 +1690,9 @@
                     body: JSON.stringify({
                         search_type: searchType,
                         search_value: searchValue,
-                        use_credits: true
+                        use_credits: true,
+                        page: page,
+                        per_page: perPage
                     })
                 });
 
@@ -1385,26 +1704,26 @@
                         gtag('event', 'search', {
                             search_term: searchValue,
                             search_type: searchType,
-                            result_count: data.results ? data.results.length : 0,
+                            result_count: data.total || data.results.length,
                             credits_used: data.credits_used || false
                         });
                     }
-                    
+
                     // Update credits display
                     if (data.remaining_credits !== undefined) {
                         updateCreditsDisplay(data.remaining_credits);
                     }
-                    
+
                     // For director searches, display found directors/companies first
                     if (searchType === 'director' && data.directors_found && data.directors_found.length > 0) {
                         displayDirectors(data.directors_found, searchValue);
                     }
-                    
+
                     if (data.results && data.results.length > 0) {
-                        displayResults(data.results, searchType, searchValue);
+                        displayResults(data.results, searchType, searchValue, data.pagination);
                     } else if (data.suggestions && data.suggestions.length > 0) {
                         displaySuggestions(data.suggestions);
-                        noResultsText.textContent = searchType === 'director' 
+                        noResultsText.textContent = searchType === 'director'
                             ? 'No properties found for companies linked to matching directors. Try these company names instead:'
                             : 'No properties found matching your search criteria.';
                         noResults.classList.remove('hidden');
@@ -1513,12 +1832,12 @@
                     if (searchType === 'director' && data.directors_found && data.directors_found.length > 0) {
                         displayDirectors(data.directors_found, searchValue);
                     }
-                    
+
                     if (data.results && data.results.length > 0) {
-                        displayResults(data.results, searchType, searchValue);
+                        displayResults(data.results, searchType, searchValue, data.pagination);
                     } else if (data.suggestions && data.suggestions.length > 0) {
                         displaySuggestions(data.suggestions);
-                        noResultsText.textContent = searchType === 'director' 
+                        noResultsText.textContent = searchType === 'director'
                             ? 'No properties found for companies linked to matching directors. Try these company names instead:'
                             : 'No properties found matching your search criteria.';
                         noResults.classList.remove('hidden');
@@ -1558,6 +1877,16 @@
             errorMessage.classList.add('hidden');
             paymentCancelled.classList.add('hidden');
             paymentSuccess.classList.add('hidden');
+
+            // Hide new feature sections
+            const relatedSection = document.getElementById('relatedCompaniesSection');
+            const groupSection = document.getElementById('companyGroupSection');
+            const graphSection = document.getElementById('networkGraphSection');
+            const paginationControls = document.getElementById('paginationControls');
+            if (relatedSection) relatedSection.classList.add('hidden');
+            if (groupSection) groupSection.classList.add('hidden');
+            if (graphSection) graphSection.classList.add('hidden');
+            if (paginationControls) paginationControls.classList.add('hidden');
         }
 
         // Reset button to default state
@@ -1687,22 +2016,34 @@
             `).join('');
         }
 
-        // Display results
-        function displayResults(results, searchType, searchValue) {
+        // Display results with pagination support
+        function displayResults(results, searchType, searchValue, pagination) {
             // Store results for fast client-side export
             lastSearchResults = results;
             resultsSection.classList.remove('hidden');
-            
+
+            // Hide search history when results are shown
+            const historySection = document.getElementById('searchHistorySection');
+            if (historySection) historySection.classList.add('hidden');
+
             // Update header
-            const typeLabels = { name: 'Company', number: 'Company Number', director: 'Director', address: 'Address' };
-            resultsTitle.textContent = searchType === 'director' 
+            const total = pagination ? pagination.total : results.length;
+            resultsTitle.textContent = searchType === 'director'
                 ? `Properties owned by companies linked to "${searchValue}"`
                 : `Properties for "${searchValue}"`;
-            resultsCount.textContent = `${results.length} ${results.length === 1 ? 'property' : 'properties'} found`;
+            resultsCount.textContent = `${total.toLocaleString()} ${total === 1 ? 'property' : 'properties'} found`;
+
+            // Update pagination
+            if (pagination) {
+                currentPagination = pagination;
+                totalPages = pagination.total_pages;
+                totalResults = pagination.total;
+                renderPagination(pagination);
+            }
 
             // Build results HTML
             resultsList.innerHTML = results.map((prop, index) => `
-                <div class="result-card glass-panel rounded-xl p-6 border border-white/5" style="animation: fadeIn 0.3s ease-out ${index * 0.05}s both">
+                <div class="result-card glass-panel rounded-xl p-6 border border-white/5" style="animation: fadeIn 0.3s ease-out ${index * 0.02}s both">
                     <div class="flex flex-col lg:flex-row lg:items-start gap-4">
                         <div class="flex-grow">
                             <div class="flex items-start gap-3 mb-3">
@@ -1714,7 +2055,7 @@
                                     <p class="text-zinc-500 text-xs">${escapeHtml(prop.postcode || '')} ${prop.district ? '• ' + escapeHtml(prop.district) : ''}</p>
                                 </div>
                             </div>
-                            
+
                             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
                                 <div>
                                     <div class="text-[10px] uppercase tracking-widest text-zinc-600 mb-1">Title Number</div>
@@ -1734,7 +2075,7 @@
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div class="lg:text-right lg:min-w-[200px] pt-4 lg:pt-0 border-t lg:border-t-0 lg:border-l border-white/5 lg:pl-4">
                             <div class="text-[10px] uppercase tracking-widest text-zinc-600 mb-1">Proprietor</div>
                             <div class="text-sm text-white font-medium mb-1">${escapeHtml(prop.proprietor_name || 'N/A')}</div>
@@ -1744,6 +2085,408 @@
                     </div>
                 </div>
             `).join('');
+
+            // Update map if visible
+            if (currentView === 'map') {
+                renderMap(results);
+            }
+
+            // Load related companies and network graph for company number/name searches
+            if (results.length > 0 && (searchType === 'number' || searchType === 'name')) {
+                const firstCompanyReg = results[0].company_registration_no;
+                if (firstCompanyReg) {
+                    loadRelatedCompanies(firstCompanyReg);
+                    loadCompanyGroup(firstCompanyReg);
+                    loadNetworkGraph(firstCompanyReg);
+                }
+            }
+        }
+
+        // ====================================
+        // PAGINATION
+        // ====================================
+
+        function renderPagination(pagination) {
+            const controls = document.getElementById('paginationControls');
+            const pageNumbers = document.getElementById('pageNumbers');
+            const prevBtn = document.getElementById('prevPageBtn');
+            const nextBtn = document.getElementById('nextPageBtn');
+            const info = document.getElementById('paginationInfo');
+
+            if (!pagination || pagination.total_pages <= 1) {
+                controls.classList.add('hidden');
+                return;
+            }
+
+            controls.classList.remove('hidden');
+            prevBtn.disabled = !pagination.has_prev;
+            nextBtn.disabled = !pagination.has_next;
+
+            // Generate page numbers
+            const pages = [];
+            const total = pagination.total_pages;
+            const current = pagination.page;
+
+            if (total <= 7) {
+                for (let i = 1; i <= total; i++) pages.push(i);
+            } else {
+                pages.push(1);
+                if (current > 3) pages.push('...');
+                for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
+                    pages.push(i);
+                }
+                if (current < total - 2) pages.push('...');
+                pages.push(total);
+            }
+
+            pageNumbers.innerHTML = pages.map(p => {
+                if (p === '...') {
+                    return `<span class="pagination-btn text-zinc-600">...</span>`;
+                }
+                return `<button class="pagination-btn bg-zinc-900 border border-white/10 text-zinc-400 ${p === current ? 'active' : ''}" onclick="goToPage(${p})">${p}</button>`;
+            }).join('');
+
+            const start = (current - 1) * pagination.per_page + 1;
+            const end = Math.min(current * pagination.per_page, pagination.total);
+            info.textContent = `Showing ${start}-${end} of ${pagination.total.toLocaleString()} results`;
+        }
+
+        function goToPage(page) {
+            if (page === 'prev') page = currentPage - 1;
+            else if (page === 'next') page = currentPage + 1;
+
+            if (page < 1 || page > totalPages || page === currentPage) return;
+
+            currentPage = page;
+
+            // Re-execute search with new page
+            executeSearchWithCredits(lastSearchType, lastSearchValue, currentPage);
+
+            // Scroll to results
+            document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // ====================================
+        // MAP VIEW
+        // ====================================
+
+        // UK postcode to approximate lat/lng (using postcode area centroids)
+        const POSTCODE_COORDS = {
+            'AB': [57.15, -2.1], 'AL': [51.75, -0.34], 'B': [52.48, -1.89], 'BA': [51.38, -2.36],
+            'BB': [53.75, -2.48], 'BD': [53.79, -1.75], 'BH': [50.72, -1.87], 'BL': [53.58, -2.43],
+            'BN': [50.82, -0.13], 'BR': [51.38, 0.05], 'BS': [51.45, -2.59], 'BT': [54.6, -5.93],
+            'CA': [54.89, -2.94], 'CB': [52.2, 0.12], 'CF': [51.48, -3.18], 'CH': [53.19, -2.89],
+            'CM': [51.73, 0.47], 'CO': [51.89, 0.9], 'CR': [51.37, -0.1], 'CT': [51.28, 1.08],
+            'CV': [52.41, -1.51], 'CW': [53.1, -2.44], 'DA': [51.44, 0.21], 'DD': [56.46, -2.97],
+            'DE': [52.92, -1.47], 'DG': [55.07, -3.61], 'DH': [54.78, -1.57], 'DL': [54.52, -1.55],
+            'DN': [53.52, -1.13], 'DT': [50.71, -2.44], 'DY': [52.51, -2.08], 'E': [51.55, -0.05],
+            'EC': [51.52, -0.09], 'EH': [55.95, -3.19], 'EN': [51.65, -0.08], 'EX': [50.72, -3.53],
+            'FK': [56.0, -3.78], 'FY': [53.81, -3.05], 'G': [55.86, -4.25], 'GL': [51.86, -2.24],
+            'GU': [51.24, -0.77], 'HA': [51.58, -0.34], 'HD': [53.65, -1.78], 'HG': [54.0, -1.54],
+            'HP': [51.75, -0.75], 'HR': [52.06, -2.72], 'HS': [57.76, -7.01], 'HU': [53.74, -0.33],
+            'HX': [53.73, -1.86], 'IG': [51.56, 0.08], 'IP': [52.06, 1.16], 'IV': [57.48, -4.22],
+            'KA': [55.46, -4.63], 'KT': [51.38, -0.3], 'KW': [58.44, -3.09], 'KY': [56.21, -3.15],
+            'L': [53.41, -2.98], 'LA': [54.05, -2.8], 'LD': [52.24, -3.38], 'LE': [52.63, -1.13],
+            'LL': [53.1, -3.49], 'LN': [53.23, -0.54], 'LS': [53.8, -1.55], 'LU': [51.88, -0.42],
+            'M': [53.48, -2.24], 'ME': [51.39, 0.54], 'MK': [52.04, -0.76], 'ML': [55.78, -3.94],
+            'N': [51.57, -0.1], 'NE': [55.0, -1.6], 'NG': [52.95, -1.15], 'NN': [52.23, -0.9],
+            'NP': [51.59, -3.0], 'NR': [52.63, 1.3], 'NW': [51.55, -0.17], 'OL': [53.54, -2.1],
+            'OX': [51.75, -1.26], 'PA': [55.84, -4.88], 'PE': [52.57, -0.24], 'PH': [56.69, -3.43],
+            'PL': [50.39, -4.14], 'PO': [50.8, -1.09], 'PR': [53.76, -2.7], 'RG': [51.45, -1.0],
+            'RH': [51.12, -0.19], 'RM': [51.57, 0.18], 'S': [53.38, -1.47], 'SA': [51.65, -3.94],
+            'SE': [51.47, -0.06], 'SG': [51.9, -0.2], 'SK': [53.39, -2.16], 'SL': [51.51, -0.66],
+            'SM': [51.37, -0.17], 'SN': [51.56, -1.79], 'SO': [50.9, -1.4], 'SP': [51.07, -1.8],
+            'SR': [54.91, -1.38], 'SS': [51.54, 0.71], 'ST': [52.99, -2.18], 'SW': [51.46, -0.17],
+            'SY': [52.59, -2.76], 'TA': [51.02, -3.1], 'TD': [55.6, -2.43], 'TF': [52.68, -2.49],
+            'TN': [51.13, 0.27], 'TQ': [50.46, -3.53], 'TR': [50.26, -5.05], 'TS': [54.57, -1.23],
+            'TW': [51.45, -0.34], 'UB': [51.55, -0.44], 'W': [51.51, -0.18], 'WA': [53.39, -2.59],
+            'WC': [51.52, -0.12], 'WD': [51.66, -0.4], 'WF': [53.68, -1.5], 'WN': [53.55, -2.63],
+            'WR': [52.19, -2.22], 'WS': [52.58, -1.97], 'WV': [52.59, -2.13], 'YO': [53.96, -1.08],
+            'ZE': [60.39, -1.15]
+        };
+
+        function postcodeToLatLng(postcode) {
+            if (!postcode) return null;
+            const clean = postcode.trim().toUpperCase();
+            // Try full area (e.g., "SW1")
+            const match2 = clean.match(/^([A-Z]{1,2})/);
+            if (match2 && POSTCODE_COORDS[match2[1]]) {
+                const base = POSTCODE_COORDS[match2[1]];
+                // Add small jitter to spread markers
+                return [base[0] + (Math.random() - 0.5) * 0.05, base[1] + (Math.random() - 0.5) * 0.05];
+            }
+            return null;
+        }
+
+        function renderMap(results) {
+            const mapDiv = document.getElementById('mapView');
+            if (!mapDiv) return;
+
+            // Clean up existing map
+            if (mapInstance) {
+                mapInstance.remove();
+                mapInstance = null;
+            }
+            mapMarkers = [];
+
+            // Create map
+            mapInstance = L.map('mapView').setView([53.5, -1.5], 6);
+            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors',
+                maxZoom: 18
+            }).addTo(mapInstance);
+
+            // Add markers for results with postcodes
+            const bounds = [];
+            results.forEach(prop => {
+                const coords = postcodeToLatLng(prop.postcode);
+                if (coords) {
+                    const marker = L.circleMarker(coords, {
+                        radius: 6,
+                        fillColor: '#3b82f6',
+                        color: '#1d4ed8',
+                        weight: 1,
+                        opacity: 0.8,
+                        fillOpacity: 0.6
+                    }).addTo(mapInstance);
+
+                    marker.bindPopup(`
+                        <div style="font-family: sans-serif; font-size: 12px; max-width: 250px;">
+                            <strong>${escapeHtml(prop.property_address || 'Unknown')}</strong><br>
+                            <span style="color: #666;">${escapeHtml(prop.postcode || '')}</span><br>
+                            <span style="color: #666;">Owner: ${escapeHtml(prop.proprietor_name || 'N/A')}</span>
+                            ${prop.price_paid ? `<br><span style="color: #666;">Price: £${Number(prop.price_paid).toLocaleString()}</span>` : ''}
+                        </div>
+                    `);
+
+                    mapMarkers.push(marker);
+                    bounds.push(coords);
+                }
+            });
+
+            // Fit map to markers
+            if (bounds.length > 0) {
+                mapInstance.fitBounds(bounds, { padding: [30, 30] });
+            }
+
+            // Fix map render issue when container is hidden then shown
+            setTimeout(() => {
+                if (mapInstance) mapInstance.invalidateSize();
+            }, 100);
+        }
+
+        function switchView(view) {
+            currentView = view;
+
+            // Update tab styles
+            document.querySelectorAll('.view-tab').forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.view === view);
+            });
+
+            const listView = document.getElementById('resultsList');
+            const mapView = document.getElementById('mapViewSection');
+
+            if (view === 'map') {
+                listView.classList.add('hidden');
+                mapView.classList.remove('hidden');
+                renderMap(lastSearchResults);
+            } else {
+                listView.classList.remove('hidden');
+                mapView.classList.add('hidden');
+            }
+        }
+
+        // ====================================
+        // RELATED COMPANIES
+        // ====================================
+
+        async function loadRelatedCompanies(companyReg) {
+            try {
+                const response = await fetch('/api/search/related-companies', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ company_registration_no: companyReg })
+                });
+                const data = await response.json();
+                if (data.success && data.related && data.related.length > 0) {
+                    displayRelatedCompanies(data.related);
+                }
+            } catch (e) {
+                console.error('Failed to load related companies:', e);
+            }
+        }
+
+        function displayRelatedCompanies(companies) {
+            const section = document.getElementById('relatedCompaniesSection');
+            const list = document.getElementById('relatedCompaniesList');
+            const title = document.getElementById('relatedCompaniesTitle');
+
+            section.classList.remove('hidden');
+            title.textContent = `${companies.length} Related ${companies.length === 1 ? 'Company' : 'Companies'}`;
+
+            list.innerHTML = companies.map((c, i) => `
+                <div class="related-company-card flex items-center gap-3 p-3 rounded-lg border border-white/5"
+                     style="animation: fadeIn 0.2s ease-out ${i * 0.05}s both"
+                     onclick="rerunSearch('number', '${escapeAttr(c.company_registration_no)}')">
+                    <div class="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
+                        <iconify-icon icon="solar:buildings-2-linear" width="14" class="text-blue-400"></iconify-icon>
+                    </div>
+                    <div class="flex-grow min-w-0">
+                        <div class="text-sm text-white truncate">${escapeHtml(c.proprietor_name || 'Unknown')}</div>
+                        <div class="text-xs text-zinc-500">
+                            Co. ${escapeHtml(c.company_registration_no || 'N/A')}
+                            &middot; ${c.property_count || 0} ${(c.property_count || 0) === 1 ? 'property' : 'properties'}
+                        </div>
+                    </div>
+                    <iconify-icon icon="solar:arrow-right-linear" width="14" class="text-zinc-600 flex-shrink-0"></iconify-icon>
+                </div>
+            `).join('');
+        }
+
+        // ====================================
+        // COMPANY GROUP DETECTION
+        // ====================================
+
+        async function loadCompanyGroup(companyReg) {
+            try {
+                const response = await fetch('/api/search/company-group', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ company_registration_no: companyReg })
+                });
+                const data = await response.json();
+                if (data.success && data.group && data.group.companies && data.group.companies.length > 1) {
+                    displayCompanyGroup(data.group);
+                }
+            } catch (e) {
+                console.error('Failed to load company group:', e);
+            }
+        }
+
+        function displayCompanyGroup(group) {
+            const section = document.getElementById('companyGroupSection');
+            const list = document.getElementById('companyGroupList');
+            const title = document.getElementById('companyGroupTitle');
+
+            section.classList.remove('hidden');
+            title.textContent = `Corporate Group (${group.companies.length} entities)`;
+
+            list.innerHTML = group.companies.map((c, i) => {
+                const relationBadge = c.relation === 'name_match'
+                    ? `<span class="text-[10px] px-2 py-0.5 rounded bg-purple-500/10 border border-purple-500/20 text-purple-400">Name Match ${c.similarity ? c.similarity + '%' : ''}</span>`
+                    : c.relation === 'address_match'
+                    ? `<span class="text-[10px] px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-blue-400">Same Address</span>`
+                    : `<span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">Source</span>`;
+
+                return `
+                    <div class="related-company-card flex items-center gap-3 p-3 rounded-lg border border-white/5"
+                         style="animation: fadeIn 0.2s ease-out ${i * 0.05}s both"
+                         onclick="rerunSearch('number', '${escapeAttr(c.company_registration_no)}')">
+                        <div class="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center flex-shrink-0">
+                            <iconify-icon icon="solar:share-circle-linear" width="14" class="text-purple-400"></iconify-icon>
+                        </div>
+                        <div class="flex-grow min-w-0">
+                            <div class="text-sm text-white truncate">${escapeHtml(c.proprietor_name || 'Unknown')}</div>
+                            <div class="text-xs text-zinc-500 flex items-center gap-2 mt-1">
+                                Co. ${escapeHtml(c.company_registration_no || 'N/A')}
+                                &middot; ${c.property_count || 0} properties
+                                ${relationBadge}
+                            </div>
+                        </div>
+                        <iconify-icon icon="solar:arrow-right-linear" width="14" class="text-zinc-600 flex-shrink-0"></iconify-icon>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ====================================
+        // NETWORK GRAPH
+        // ====================================
+
+        let networkInstance = null;
+
+        async function loadNetworkGraph(companyReg) {
+            try {
+                const response = await fetch('/api/search/network-graph', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ company_registration_no: companyReg })
+                });
+                const data = await response.json();
+                if (data.success && data.graph && data.graph.nodes && data.graph.nodes.length > 1) {
+                    renderNetworkGraph(data.graph);
+                }
+            } catch (e) {
+                console.error('Failed to load network graph:', e);
+            }
+        }
+
+        function renderNetworkGraph(graph) {
+            const section = document.getElementById('networkGraphSection');
+            const container = document.getElementById('networkGraph');
+
+            section.classList.remove('hidden');
+
+            // Clean up existing graph
+            if (networkInstance) {
+                networkInstance.destroy();
+                networkInstance = null;
+            }
+
+            // Convert to vis.js format
+            const nodes = new vis.DataSet(graph.nodes.map(n => {
+                let color, shape, size;
+                if (n.type === 'company') {
+                    color = { background: '#3b82f6', border: '#1d4ed8', highlight: { background: '#60a5fa', border: '#2563eb' } };
+                    shape = 'dot';
+                    size = 25;
+                } else if (n.type === 'related_company') {
+                    color = { background: '#f59e0b', border: '#d97706', highlight: { background: '#fbbf24', border: '#f59e0b' } };
+                    shape = 'dot';
+                    size = 18;
+                } else {
+                    color = { background: '#10b981', border: '#059669', highlight: { background: '#34d399', border: '#10b981' } };
+                    shape = 'square';
+                    size = 12;
+                }
+                return {
+                    id: n.id,
+                    label: n.label,
+                    color,
+                    shape,
+                    size,
+                    font: { color: '#a1a1aa', size: 10 },
+                    title: n.full_address || n.company_reg || n.label
+                };
+            }));
+
+            const edges = new vis.DataSet(graph.edges.map(e => ({
+                from: e.from,
+                to: e.to,
+                label: e.label,
+                font: { color: '#52525b', size: 8, strokeWidth: 0 },
+                color: { color: '#3f3f46', highlight: '#71717a' },
+                dashes: e.dashes || false,
+                smooth: { type: 'continuous' }
+            })));
+
+            const options = {
+                physics: {
+                    stabilization: { iterations: 100 },
+                    barnesHut: { gravitationalConstant: -3000, centralGravity: 0.3, springLength: 120 }
+                },
+                interaction: {
+                    hover: true,
+                    tooltipDelay: 200,
+                    zoomView: true,
+                    dragView: true
+                },
+                layout: {
+                    improvedLayout: true
+                }
+            };
+
+            networkInstance = new vis.Network(container, { nodes, edges }, options);
         }
 
         // Display suggestions

@@ -9,12 +9,15 @@ import psycopg2.extras
 import os
 import csv
 import io
+import json
+import time
 import requests
 import stripe
 import bcrypt
 import secrets
 import resend
 from pathlib import Path
+from collections import defaultdict
 from rapidfuzz import fuzz, process
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
@@ -88,6 +91,84 @@ SEARCH_PRICES = {
 
 # In-memory storage for used sessions (in production, use database)
 used_sessions = set()
+
+# ============================================
+# RATE LIMITING CONFIGURATION
+# ============================================
+
+# In-memory rate limit store: {identifier: [(timestamp, count), ...]}
+_rate_limit_store = defaultdict(list)
+
+# Rate limit rules: endpoint_prefix -> (max_requests, window_seconds)
+RATE_LIMIT_RULES = {
+    '/api/search': (30, 60),           # 30 searches per minute
+    '/api/auth/login': (10, 60),       # 10 login attempts per minute
+    '/api/auth/register': (5, 60),     # 5 registrations per minute
+    '/api/auth/magic-link': (5, 60),   # 5 magic link requests per minute
+    '/api/create-checkout': (10, 60),  # 10 checkout attempts per minute
+    '/api/export': (20, 60),           # 20 exports per minute
+}
+
+def get_client_identifier():
+    """Get a unique identifier for rate limiting (IP + user ID if logged in)."""
+    ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    if ip:
+        ip = ip.split(',')[0].strip()
+    user_id = session.get('user_id')
+    if user_id:
+        return f"user:{user_id}"
+    return f"ip:{ip}"
+
+
+def check_rate_limit(endpoint_prefix=None):
+    """
+    Check if the current request exceeds rate limits.
+    Returns (is_allowed, retry_after_seconds).
+    """
+    if endpoint_prefix is None:
+        endpoint_prefix = request.path
+
+    # Find matching rule
+    rule = None
+    for prefix, limits in RATE_LIMIT_RULES.items():
+        if endpoint_prefix.startswith(prefix):
+            rule = limits
+            break
+
+    if not rule:
+        return True, 0  # No rule = no limit
+
+    max_requests, window_seconds = rule
+    identifier = get_client_identifier()
+    key = f"{identifier}:{endpoint_prefix}"
+    now = time.time()
+    window_start = now - window_seconds
+
+    # Clean old entries and count recent ones
+    _rate_limit_store[key] = [t for t in _rate_limit_store[key] if t > window_start]
+    current_count = len(_rate_limit_store[key])
+
+    if current_count >= max_requests:
+        # Calculate retry-after
+        oldest = min(_rate_limit_store[key]) if _rate_limit_store[key] else now
+        retry_after = int(oldest + window_seconds - now) + 1
+        return False, max(retry_after, 1)
+
+    # Record this request
+    _rate_limit_store[key].append(now)
+    return True, 0
+
+
+def rate_limit_response(retry_after):
+    """Return a 429 Too Many Requests response."""
+    response = jsonify({
+        'success': False,
+        'error': f'Too many requests. Please try again in {retry_after} seconds.',
+        'retry_after': retry_after
+    })
+    response.status_code = 429
+    response.headers['Retry-After'] = str(retry_after)
+    return response
 
 # For local development fallback to SQLite
 BASE_DIR = Path(__file__).parent.parent
@@ -549,22 +630,29 @@ def is_payment_used(stripe_session_id):
         return stripe_session_id in used_sessions
 
 
-def search_properties_by_company(company_number):
-    """Search for properties owned by a company number"""
+def search_properties_by_company(company_number, page=1, per_page=50):
+    """Search for properties owned by a company number with pagination"""
     if not company_number:
-        return []
-    
+        return [], 0
+
     # Normalize company number using single source of truth
     company_number_normalized = normalize_company_reg(company_number)
-    
+    offset = (page - 1) * per_page
+
     conn = get_db_connection()
     cursor = dict_cursor(conn)
-    
+
+    # Get total count first
+    if DATABASE_URL:
+        cursor.execute("SELECT COUNT(*) FROM proprietors WHERE company_reg_normalized = %s", (company_number_normalized,))
+    else:
+        cursor.execute("SELECT COUNT(*) FROM proprietors WHERE UPPER(REPLACE(REPLACE(REPLACE(REPLACE(TRIM(company_registration_no), '(', ''), ')', ''), ' ', ''), '-', '')) = ?", (company_number_normalized,))
+    total = cursor.fetchone()[0] if DATABASE_URL else cursor.fetchone()[0]
+
     # Query properties with matching company registration number using indexed normalized column
     if DATABASE_URL:
-        # PostgreSQL: use normalized column with index
         cursor.execute("""
-            SELECT 
+            SELECT
                 p.id,
                 p.title_number,
                 p.tenure,
@@ -585,11 +673,11 @@ def search_properties_by_company(company_number):
             INNER JOIN proprietors pr ON p.id = pr.property_id
             WHERE pr.company_reg_normalized = %s
             ORDER BY p.property_address
-        """, (company_number_normalized,))
+            LIMIT %s OFFSET %s
+        """, (company_number_normalized, per_page, offset))
     else:
-        # SQLite fallback: use function-based query (no normalized column in SQLite)
         cursor.execute("""
-            SELECT 
+            SELECT
                 p.id,
                 p.title_number,
                 p.tenure,
@@ -610,12 +698,13 @@ def search_properties_by_company(company_number):
             INNER JOIN proprietors pr ON p.id = pr.property_id
             WHERE UPPER(REPLACE(REPLACE(REPLACE(REPLACE(TRIM(pr.company_registration_no), '(', ''), ')', ''), ' ', ''), '-', '')) = ?
             ORDER BY p.property_address
-        """, (company_number_normalized,))
-    
+            LIMIT ? OFFSET ?
+        """, (company_number_normalized, per_page, offset))
+
     results = cursor.fetchall()
     conn.close()
-    
-    return [dict(row) for row in results]
+
+    return [dict(row) for row in results], total
 
 
 def get_all_unique_company_names():
@@ -636,23 +725,30 @@ def get_all_unique_company_names():
     return names
 
 
-def search_properties_by_company_name(company_name, fuzzy_threshold=70):
+def search_properties_by_company_name(company_name, fuzzy_threshold=70, page=1, per_page=50):
     """Search for properties owned by a company name (partial match with fuzzy suggestions)"""
     if not company_name:
-        return [], []
-    
+        return [], [], 0
+
     # Normalize company name using helper function
     company_name_normalized = normalize_text_upper(company_name)
     company_name_original = company_name.strip()
-    
+    offset = (page - 1) * per_page
+
     conn = get_db_connection()
     cursor = dict_cursor(conn)
-    
+
+    # Get total count first
+    if DATABASE_URL:
+        cursor.execute("SELECT COUNT(*) FROM proprietors pr INNER JOIN properties p ON p.id = pr.property_id WHERE pr.proprietor_name_upper LIKE %s", (f'%{company_name_normalized}%',))
+    else:
+        cursor.execute("SELECT COUNT(*) FROM proprietors pr INNER JOIN properties p ON p.id = pr.property_id WHERE UPPER(TRIM(pr.proprietor_name)) LIKE ?", (f'%{company_name_normalized}%',))
+    total = cursor.fetchone()[0]
+
     # First, try exact/partial match using indexed normalized column
     if DATABASE_URL:
-        # PostgreSQL: use trigram-indexed normalized column
         cursor.execute("""
-            SELECT 
+            SELECT
                 p.id,
                 p.title_number,
                 p.tenure,
@@ -673,11 +769,11 @@ def search_properties_by_company_name(company_name, fuzzy_threshold=70):
             INNER JOIN proprietors pr ON p.id = pr.property_id
             WHERE pr.proprietor_name_upper LIKE %s
             ORDER BY pr.proprietor_name, p.property_address
-        """, (f'%{company_name_normalized}%',))
+            LIMIT %s OFFSET %s
+        """, (f'%{company_name_normalized}%', per_page, offset))
     else:
-        # SQLite fallback: use function-based query
         cursor.execute("""
-            SELECT 
+            SELECT
                 p.id,
                 p.title_number,
                 p.tenure,
@@ -698,27 +794,26 @@ def search_properties_by_company_name(company_name, fuzzy_threshold=70):
             INNER JOIN proprietors pr ON p.id = pr.property_id
             WHERE UPPER(TRIM(pr.proprietor_name)) LIKE ?
             ORDER BY pr.proprietor_name, p.property_address
-        """, (f'%{company_name_normalized}%',))
-    
+            LIMIT ? OFFSET ?
+        """, (f'%{company_name_normalized}%', per_page, offset))
+
     results = cursor.fetchall()
     conn.close()
-    
+
     # If we have results, return them with no suggestions
     if results:
-        return [dict(row) for row in results], []
-    
+        return [dict(row) for row in results], [], total
+
     # If no results, perform fuzzy matching to find suggestions
     all_company_names = get_all_unique_company_names()
-    
-    # Use rapidfuzz to find similar company names
-    # We'll use WRatio which combines multiple algorithms for better results
+
     matches = process.extract(
         company_name_original,
         all_company_names,
         scorer=fuzz.WRatio,
         limit=5
     )
-    
+
     # Filter matches above threshold and return unique suggestions
     suggestions = []
     seen_names = set()
@@ -729,26 +824,41 @@ def search_properties_by_company_name(company_name, fuzzy_threshold=70):
                 'similarity': round(score, 1)
             })
             seen_names.add(match_name.upper())
-    
-    return [], suggestions
+
+    return [], suggestions, 0
 
 
-def search_properties_by_address(address_query):
+def search_properties_by_address(address_query, page=1, per_page=50):
     """Search for properties by address (partial match on property_address or postcode)"""
     if not address_query:
-        return []
-    
+        return [], 0
+
     # Normalize address using helper function
     address_normalized = normalize_text_upper(address_query)
-    
+    offset = (page - 1) * per_page
+
     conn = get_db_connection()
     cursor = dict_cursor(conn)
-    
+
+    # Get total count
+    if DATABASE_URL:
+        cursor.execute("""
+            SELECT COUNT(*) FROM properties p
+            INNER JOIN proprietors pr ON p.id = pr.property_id
+            WHERE p.property_address_upper LIKE %s OR p.postcode_upper LIKE %s
+        """, (f'%{address_normalized}%', f'%{address_normalized}%'))
+    else:
+        cursor.execute("""
+            SELECT COUNT(*) FROM properties p
+            INNER JOIN proprietors pr ON p.id = pr.property_id
+            WHERE UPPER(TRIM(p.property_address)) LIKE ? OR UPPER(TRIM(p.postcode)) LIKE ?
+        """, (f'%{address_normalized}%', f'%{address_normalized}%'))
+    total = cursor.fetchone()[0]
+
     # Search in property_address and postcode fields using indexed normalized columns
     if DATABASE_URL:
-        # PostgreSQL: use trigram-indexed normalized columns
         cursor.execute("""
-            SELECT 
+            SELECT
                 p.id,
                 p.title_number,
                 p.tenure,
@@ -770,12 +880,11 @@ def search_properties_by_address(address_query):
             WHERE p.property_address_upper LIKE %s
                OR p.postcode_upper LIKE %s
             ORDER BY p.property_address
-            LIMIT 500
-        """, (f'%{address_normalized}%', f'%{address_normalized}%'))
+            LIMIT %s OFFSET %s
+        """, (f'%{address_normalized}%', f'%{address_normalized}%', per_page, offset))
     else:
-        # SQLite fallback: use function-based query
         cursor.execute("""
-            SELECT 
+            SELECT
                 p.id,
                 p.title_number,
                 p.tenure,
@@ -797,13 +906,13 @@ def search_properties_by_address(address_query):
             WHERE UPPER(TRIM(p.property_address)) LIKE ?
                OR UPPER(TRIM(p.postcode)) LIKE ?
             ORDER BY p.property_address
-            LIMIT 500
-        """, (f'%{address_normalized}%', f'%{address_normalized}%'))
-    
+            LIMIT ? OFFSET ?
+        """, (f'%{address_normalized}%', f'%{address_normalized}%', per_page, offset))
+
     results = cursor.fetchall()
     conn.close()
-    
-    return [dict(row) for row in results]
+
+    return [dict(row) for row in results], total
 
 
 def is_corporate_officer(name):
@@ -1090,6 +1199,456 @@ def search_properties_by_director(director_name):
     return [dict(row) for row in results], directors_found, [], None
 
 
+# ============================================
+# SEARCH HISTORY HELPERS
+# ============================================
+
+def record_search_history(user_id, search_type, search_value, result_count):
+    """Record a search in the user's history."""
+    if not user_id:
+        return
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        if DATABASE_URL:
+            cursor.execute("""
+                INSERT INTO search_history (user_id, search_type, search_value, result_count)
+                VALUES (%s, %s, %s, %s)
+            """, (user_id, search_type, search_value[:200], result_count))
+        else:
+            cursor.execute("""
+                INSERT INTO search_history (user_id, search_type, search_value, result_count)
+                VALUES (?, ?, ?, ?)
+            """, (user_id, search_type, search_value[:200], result_count))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error recording search history: {e}")
+
+
+def get_search_history(user_id, limit=20):
+    """Get recent search history for a user."""
+    try:
+        conn = get_db_connection()
+        cursor = dict_cursor(conn)
+        if DATABASE_URL:
+            cursor.execute("""
+                SELECT id, search_type, search_value, result_count, created_at
+                FROM search_history
+                WHERE user_id = %s
+                ORDER BY created_at DESC
+                LIMIT %s
+            """, (user_id, limit))
+        else:
+            cursor.execute("""
+                SELECT id, search_type, search_value, result_count, created_at
+                FROM search_history
+                WHERE user_id = ?
+                ORDER BY created_at DESC
+                LIMIT ?
+            """, (user_id, limit))
+        results = cursor.fetchall()
+        conn.close()
+        return [dict(row) for row in results]
+    except Exception as e:
+        print(f"Error getting search history: {e}")
+        return []
+
+
+# ============================================
+# RELATED COMPANIES & GROUP DETECTION HELPERS
+# ============================================
+
+def find_related_companies(company_reg_no):
+    """
+    Find companies related to the given company by shared registered address.
+    Returns list of companies at the same address.
+    """
+    if not company_reg_no:
+        return []
+
+    company_reg_normalized = normalize_company_reg(company_reg_no)
+
+    conn = get_db_connection()
+    cursor = dict_cursor(conn)
+
+    try:
+        # Step 1: Get the registered address of this company
+        if DATABASE_URL:
+            cursor.execute("""
+                SELECT DISTINCT address_line_1, address_line_2, address_line_3
+                FROM proprietors
+                WHERE company_reg_normalized = %s
+                AND address_line_1 IS NOT NULL AND TRIM(address_line_1) != ''
+                LIMIT 1
+            """, (company_reg_normalized,))
+        else:
+            cursor.execute("""
+                SELECT DISTINCT address_line_1, address_line_2, address_line_3
+                FROM proprietors
+                WHERE UPPER(REPLACE(REPLACE(REPLACE(REPLACE(TRIM(company_registration_no), '(', ''), ')', ''), ' ', ''), '-', '')) = ?
+                AND address_line_1 IS NOT NULL AND TRIM(address_line_1) != ''
+                LIMIT 1
+            """, (company_reg_normalized,))
+
+        address = cursor.fetchone()
+        if not address:
+            conn.close()
+            return []
+
+        address_dict = dict(address) if hasattr(address, 'keys') else {
+            'address_line_1': address[0], 'address_line_2': address[1], 'address_line_3': address[2]
+        }
+
+        addr1 = normalize_text_upper(address_dict.get('address_line_1', ''))
+        if not addr1:
+            conn.close()
+            return []
+
+        # Step 2: Find other companies at the same address
+        if DATABASE_URL:
+            cursor.execute("""
+                SELECT DISTINCT
+                    pr.proprietor_name,
+                    pr.company_registration_no,
+                    pr.address_line_1,
+                    COUNT(DISTINCT p.id) as property_count
+                FROM proprietors pr
+                INNER JOIN properties p ON p.id = pr.property_id
+                WHERE UPPER(TRIM(pr.address_line_1)) = %s
+                AND pr.company_reg_normalized != %s
+                AND pr.company_registration_no IS NOT NULL
+                AND TRIM(pr.company_registration_no) != ''
+                GROUP BY pr.proprietor_name, pr.company_registration_no, pr.address_line_1
+                ORDER BY property_count DESC
+                LIMIT 20
+            """, (addr1, company_reg_normalized))
+        else:
+            cursor.execute("""
+                SELECT DISTINCT
+                    pr.proprietor_name,
+                    pr.company_registration_no,
+                    pr.address_line_1,
+                    COUNT(DISTINCT p.id) as property_count
+                FROM proprietors pr
+                INNER JOIN properties p ON p.id = pr.property_id
+                WHERE UPPER(TRIM(pr.address_line_1)) = ?
+                AND UPPER(REPLACE(REPLACE(REPLACE(REPLACE(TRIM(pr.company_registration_no), '(', ''), ')', ''), ' ', ''), '-', '')) != ?
+                AND pr.company_registration_no IS NOT NULL
+                AND TRIM(pr.company_registration_no) != ''
+                GROUP BY pr.proprietor_name, pr.company_registration_no, pr.address_line_1
+                ORDER BY property_count DESC
+                LIMIT 20
+            """, (addr1, company_reg_normalized))
+
+        results = cursor.fetchall()
+        conn.close()
+        return [dict(row) for row in results]
+
+    except Exception as e:
+        print(f"Error finding related companies: {e}")
+        conn.close()
+        return []
+
+
+def detect_company_group(company_reg_no):
+    """
+    Detect companies in the same corporate group by:
+    1. Shared registered address
+    2. Similar company names (same prefix/root)
+    Returns a group structure.
+    """
+    if not company_reg_no:
+        return {'companies': [], 'shared_address': None}
+
+    company_reg_normalized = normalize_company_reg(company_reg_no)
+
+    conn = get_db_connection()
+    cursor = dict_cursor(conn)
+
+    try:
+        # Get the source company details
+        if DATABASE_URL:
+            cursor.execute("""
+                SELECT DISTINCT pr.proprietor_name, pr.company_registration_no,
+                       pr.address_line_1, pr.address_line_2,
+                       COUNT(DISTINCT p.id) as property_count
+                FROM proprietors pr
+                INNER JOIN properties p ON p.id = pr.property_id
+                WHERE pr.company_reg_normalized = %s
+                GROUP BY pr.proprietor_name, pr.company_registration_no, pr.address_line_1, pr.address_line_2
+                LIMIT 1
+            """, (company_reg_normalized,))
+        else:
+            cursor.execute("""
+                SELECT DISTINCT pr.proprietor_name, pr.company_registration_no,
+                       pr.address_line_1, pr.address_line_2,
+                       COUNT(DISTINCT p.id) as property_count
+                FROM proprietors pr
+                INNER JOIN properties p ON p.id = pr.property_id
+                WHERE UPPER(REPLACE(REPLACE(REPLACE(REPLACE(TRIM(pr.company_registration_no), '(', ''), ')', ''), ' ', ''), '-', '')) = ?
+                GROUP BY pr.proprietor_name, pr.company_registration_no, pr.address_line_1, pr.address_line_2
+                LIMIT 1
+            """, (company_reg_normalized,))
+
+        source = cursor.fetchone()
+        if not source:
+            conn.close()
+            return {'companies': [], 'shared_address': None}
+
+        source_dict = dict(source) if hasattr(source, 'keys') else {
+            'proprietor_name': source[0], 'company_registration_no': source[1],
+            'address_line_1': source[2], 'address_line_2': source[3],
+            'property_count': source[4]
+        }
+
+        group_companies = [source_dict]
+        shared_address = source_dict.get('address_line_1', '')
+
+        # Extract root name for fuzzy grouping (e.g. "ACME" from "ACME HOLDINGS LTD")
+        source_name = source_dict.get('proprietor_name', '')
+        # Get first meaningful word(s) as root
+        name_words = source_name.upper().split()
+        # Remove common suffixes
+        suffixes = {'LTD', 'LIMITED', 'PLC', 'LLP', 'INC', 'CORPORATION', 'CORP', 'LLC', 'CO', 'GROUP', 'HOLDINGS'}
+        root_words = [w for w in name_words if w not in suffixes and len(w) > 2]
+        root_name = root_words[0] if root_words else ''
+
+        if root_name and len(root_name) >= 3:
+            # Find companies with similar names
+            if DATABASE_URL:
+                cursor.execute("""
+                    SELECT DISTINCT pr.proprietor_name, pr.company_registration_no,
+                           pr.address_line_1, pr.address_line_2,
+                           COUNT(DISTINCT p.id) as property_count
+                    FROM proprietors pr
+                    INNER JOIN properties p ON p.id = pr.property_id
+                    WHERE pr.proprietor_name_upper LIKE %s
+                    AND pr.company_reg_normalized != %s
+                    AND pr.company_registration_no IS NOT NULL
+                    AND TRIM(pr.company_registration_no) != ''
+                    GROUP BY pr.proprietor_name, pr.company_registration_no, pr.address_line_1, pr.address_line_2
+                    ORDER BY property_count DESC
+                    LIMIT 15
+                """, (f'%{root_name}%', company_reg_normalized))
+            else:
+                cursor.execute("""
+                    SELECT DISTINCT pr.proprietor_name, pr.company_registration_no,
+                           pr.address_line_1, pr.address_line_2,
+                           COUNT(DISTINCT p.id) as property_count
+                    FROM proprietors pr
+                    INNER JOIN properties p ON p.id = pr.property_id
+                    WHERE UPPER(TRIM(pr.proprietor_name)) LIKE ?
+                    AND UPPER(REPLACE(REPLACE(REPLACE(REPLACE(TRIM(pr.company_registration_no), '(', ''), ')', ''), ' ', ''), '-', '')) != ?
+                    AND pr.company_registration_no IS NOT NULL
+                    AND TRIM(pr.company_registration_no) != ''
+                    GROUP BY pr.proprietor_name, pr.company_registration_no, pr.address_line_1, pr.address_line_2
+                    ORDER BY property_count DESC
+                    LIMIT 15
+                """, (f'%{root_name}%', company_reg_normalized))
+
+            related = cursor.fetchall()
+            for r in related:
+                r_dict = dict(r) if hasattr(r, 'keys') else {
+                    'proprietor_name': r[0], 'company_registration_no': r[1],
+                    'address_line_1': r[2], 'address_line_2': r[3],
+                    'property_count': r[4]
+                }
+                # Check if name is genuinely related (fuzzy match)
+                r_name = r_dict.get('proprietor_name', '')
+                similarity = fuzz.WRatio(source_name, r_name)
+                if similarity >= 50:
+                    r_dict['similarity'] = round(similarity, 1)
+                    r_dict['relation'] = 'name_match'
+                    group_companies.append(r_dict)
+
+        # Also find companies at the same registered address
+        addr1 = normalize_text_upper(shared_address)
+        if addr1:
+            if DATABASE_URL:
+                cursor.execute("""
+                    SELECT DISTINCT pr.proprietor_name, pr.company_registration_no,
+                           pr.address_line_1, pr.address_line_2,
+                           COUNT(DISTINCT p.id) as property_count
+                    FROM proprietors pr
+                    INNER JOIN properties p ON p.id = pr.property_id
+                    WHERE UPPER(TRIM(pr.address_line_1)) = %s
+                    AND pr.company_reg_normalized != %s
+                    AND pr.company_registration_no IS NOT NULL
+                    AND TRIM(pr.company_registration_no) != ''
+                    GROUP BY pr.proprietor_name, pr.company_registration_no, pr.address_line_1, pr.address_line_2
+                    ORDER BY property_count DESC
+                    LIMIT 15
+                """, (addr1, company_reg_normalized))
+            else:
+                cursor.execute("""
+                    SELECT DISTINCT pr.proprietor_name, pr.company_registration_no,
+                           pr.address_line_1, pr.address_line_2,
+                           COUNT(DISTINCT p.id) as property_count
+                    FROM proprietors pr
+                    INNER JOIN properties p ON p.id = pr.property_id
+                    WHERE UPPER(TRIM(pr.address_line_1)) = ?
+                    AND UPPER(REPLACE(REPLACE(REPLACE(REPLACE(TRIM(pr.company_registration_no), '(', ''), ')', ''), ' ', ''), '-', '')) != ?
+                    AND pr.company_registration_no IS NOT NULL
+                    AND TRIM(pr.company_registration_no) != ''
+                    GROUP BY pr.proprietor_name, pr.company_registration_no, pr.address_line_1, pr.address_line_2
+                    ORDER BY property_count DESC
+                    LIMIT 15
+                """, (addr1, company_reg_normalized))
+
+            addr_related = cursor.fetchall()
+            existing_regs = {c.get('company_registration_no', '') for c in group_companies}
+            for r in addr_related:
+                r_dict = dict(r) if hasattr(r, 'keys') else {
+                    'proprietor_name': r[0], 'company_registration_no': r[1],
+                    'address_line_1': r[2], 'address_line_2': r[3],
+                    'property_count': r[4]
+                }
+                if r_dict.get('company_registration_no', '') not in existing_regs:
+                    r_dict['relation'] = 'address_match'
+                    group_companies.append(r_dict)
+                    existing_regs.add(r_dict.get('company_registration_no', ''))
+
+        conn.close()
+        return {
+            'companies': group_companies,
+            'shared_address': shared_address,
+            'root_name': root_name
+        }
+
+    except Exception as e:
+        print(f"Error detecting company group: {e}")
+        conn.close()
+        return {'companies': [], 'shared_address': None}
+
+
+def build_network_graph(company_reg_no):
+    """
+    Build a network graph dataset showing relationships between
+    a company, its properties, and related companies.
+    Returns nodes and edges for vis.js visualization.
+    """
+    if not company_reg_no:
+        return {'nodes': [], 'edges': []}
+
+    company_reg_normalized = normalize_company_reg(company_reg_no)
+    nodes = []
+    edges = []
+    node_ids = set()
+
+    conn = get_db_connection()
+    cursor = dict_cursor(conn)
+
+    try:
+        # Get the source company and its properties
+        if DATABASE_URL:
+            cursor.execute("""
+                SELECT DISTINCT
+                    pr.proprietor_name,
+                    pr.company_registration_no,
+                    pr.address_line_1,
+                    p.property_address,
+                    p.postcode,
+                    p.title_number,
+                    p.tenure
+                FROM proprietors pr
+                INNER JOIN properties p ON p.id = pr.property_id
+                WHERE pr.company_reg_normalized = %s
+                LIMIT 50
+            """, (company_reg_normalized,))
+        else:
+            cursor.execute("""
+                SELECT DISTINCT
+                    pr.proprietor_name,
+                    pr.company_registration_no,
+                    pr.address_line_1,
+                    p.property_address,
+                    p.postcode,
+                    p.title_number,
+                    p.tenure
+                FROM proprietors pr
+                INNER JOIN properties p ON p.id = pr.property_id
+                WHERE UPPER(REPLACE(REPLACE(REPLACE(REPLACE(TRIM(pr.company_registration_no), '(', ''), ')', ''), ' ', ''), '-', '')) = ?
+                LIMIT 50
+            """, (company_reg_normalized,))
+
+        properties = cursor.fetchall()
+        if not properties:
+            conn.close()
+            return {'nodes': [], 'edges': []}
+
+        # Add the company node
+        first_prop = dict(properties[0]) if hasattr(properties[0], 'keys') else {
+            'proprietor_name': properties[0][0], 'company_registration_no': properties[0][1],
+            'address_line_1': properties[0][2]
+        }
+
+        company_node_id = f"company_{company_reg_normalized}"
+        nodes.append({
+            'id': company_node_id,
+            'label': first_prop.get('proprietor_name', 'Unknown'),
+            'type': 'company',
+            'company_reg': company_reg_no,
+            'address': first_prop.get('address_line_1', '')
+        })
+        node_ids.add(company_node_id)
+
+        # Add property nodes
+        for prop in properties:
+            prop_dict = dict(prop) if hasattr(prop, 'keys') else {
+                'property_address': prop[3], 'postcode': prop[4],
+                'title_number': prop[5], 'tenure': prop[6]
+            }
+            prop_id = f"property_{prop_dict.get('title_number', '')}"
+            if prop_id not in node_ids:
+                addr = prop_dict.get('property_address', 'Unknown')
+                # Truncate long addresses for display
+                label = addr[:40] + '...' if len(addr) > 40 else addr
+                nodes.append({
+                    'id': prop_id,
+                    'label': label,
+                    'type': 'property',
+                    'full_address': addr,
+                    'postcode': prop_dict.get('postcode', ''),
+                    'tenure': prop_dict.get('tenure', '')
+                })
+                node_ids.add(prop_id)
+                edges.append({
+                    'from': company_node_id,
+                    'to': prop_id,
+                    'label': 'owns'
+                })
+
+        # Find related companies (same address)
+        related = find_related_companies(company_reg_no)
+        for rel in related[:10]:  # Limit to 10 related companies in graph
+            rel_reg = normalize_company_reg(rel.get('company_registration_no', ''))
+            rel_node_id = f"company_{rel_reg}"
+            if rel_node_id not in node_ids:
+                nodes.append({
+                    'id': rel_node_id,
+                    'label': rel.get('proprietor_name', 'Unknown'),
+                    'type': 'related_company',
+                    'company_reg': rel.get('company_registration_no', ''),
+                    'property_count': rel.get('property_count', 0)
+                })
+                node_ids.add(rel_node_id)
+                edges.append({
+                    'from': company_node_id,
+                    'to': rel_node_id,
+                    'label': 'same address',
+                    'dashes': True
+                })
+
+        conn.close()
+        return {'nodes': nodes, 'edges': edges}
+
+    except Exception as e:
+        print(f"Error building network graph: {e}")
+        conn.close()
+        return {'nodes': [], 'edges': []}
+
+
 @app.route('/')
 def landing():
     """Landing page"""
@@ -1157,6 +1716,11 @@ def verify_magic_link_route():
 @app.route('/api/auth/register', methods=['POST'])
 def api_register():
     """Register a new user account"""
+    # Rate limiting
+    allowed, retry_after = check_rate_limit('/api/auth/register')
+    if not allowed:
+        return rate_limit_response(retry_after)
+
     data = request.get_json()
     email = data.get('email', '').strip().lower()
     password = data.get('password', '').strip()
@@ -1222,6 +1786,11 @@ def api_register():
 @app.route('/api/auth/login', methods=['POST'])
 def api_login():
     """Log in with email and password"""
+    # Rate limiting
+    allowed, retry_after = check_rate_limit('/api/auth/login')
+    if not allowed:
+        return rate_limit_response(retry_after)
+
     data = request.get_json()
     email = data.get('email', '').strip().lower()
     password = data.get('password', '').strip()
@@ -1266,6 +1835,11 @@ def api_login():
 @app.route('/api/auth/magic-link', methods=['POST'])
 def api_request_magic_link():
     """Request a magic link for passwordless login"""
+    # Rate limiting
+    allowed, retry_after = check_rate_limit('/api/auth/magic-link')
+    if not allowed:
+        return rate_limit_response(retry_after)
+
     data = request.get_json()
     email = data.get('email', '').strip().lower()
     
@@ -1325,6 +1899,11 @@ def api_get_current_user():
 @app.route('/api/create-checkout', methods=['POST'])
 def create_checkout():
     """Create a Stripe Checkout Session for a search"""
+    # Rate limiting
+    allowed, retry_after = check_rate_limit('/api/create-checkout')
+    if not allowed:
+        return rate_limit_response(retry_after)
+
     data = request.get_json()
     search_type = data.get('search_type', 'number')
     search_value = data.get('search_value', '').strip()
@@ -1460,6 +2039,11 @@ def api_search_directors():
     Returns a list of matching individual directors from Companies House.
     User can then select one to view their properties (Stage 2).
     """
+    # Rate limiting
+    allowed, retry_after = check_rate_limit('/api/search')
+    if not allowed:
+        return rate_limit_response(retry_after)
+
     data = request.get_json()
     director_name = data.get('director_name', '').strip()
 
@@ -1558,6 +2142,11 @@ def api_search_director_properties():
     Takes an officer_id and fetches their company appointments, then searches
     the Land Registry database for properties owned by those companies.
     """
+    # Rate limiting
+    allowed, retry_after = check_rate_limit('/api/search')
+    if not allowed:
+        return rate_limit_response(retry_after)
+
     data = request.get_json()
     officer_id = data.get('officer_id', '').strip()
     director_name = data.get('director_name', '').strip()
@@ -1729,13 +2318,20 @@ def api_search_director_properties():
 
 @app.route('/api/search', methods=['POST'])
 def api_search():
-    """API endpoint for searching properties"""
+    """API endpoint for searching properties with pagination"""
+    # Rate limiting
+    allowed, retry_after = check_rate_limit('/api/search')
+    if not allowed:
+        return rate_limit_response(retry_after)
+
     data = request.get_json()
     search_type = data.get('search_type', 'number')  # 'number', 'name', 'address', or 'director'
     search_value = data.get('search_value', '').strip()
     session_id = data.get('session_id')  # Stripe Checkout Session ID
     use_credits = data.get('use_credits', True)  # Whether to use credits if available
-    
+    page = max(1, int(data.get('page', 1)))
+    per_page = min(100, max(1, int(data.get('per_page', 50))))
+
     if not search_value:
         return jsonify({
             'success': False,
@@ -1744,7 +2340,7 @@ def api_search():
             'count': 0,
             'suggestions': []
         })
-    
+
     # Get current user and check credits
     user = get_current_user()
     credit_cost = CREDIT_COSTS.get(search_type, 1)
@@ -1753,18 +2349,18 @@ def api_search():
     # Check if user has unlimited access (friends/family)
     if user and user.get('is_unlimited'):
         credits_used = True  # Unlimited users don't need credits
-    # Try to use credits first if user is logged in
-    elif user and use_credits:
+    # Try to use credits first if user is logged in (only charge on first page)
+    elif user and use_credits and page == 1:
         user_credits = get_user_credits(user['id'])
         if user_credits >= credit_cost:
-            # Deduct credits
             if deduct_credits(user['id'], credit_cost, search_type, f'Search: {search_value[:50]}'):
                 credits_used = True
+    elif page > 1:
+        # Subsequent pages don't cost credits (search already paid for)
+        credits_used = True
 
     # If credits weren't used, verify payment
     if not credits_used:
-        # Verify payment before executing search
-        # Only require payment if Stripe is configured
         if stripe.api_key and stripe.api_key != 'sk_test_your_secret_key_here':
             is_valid, payment_error = verify_stripe_payment(session_id, search_type, search_value)
             if not is_valid:
@@ -1784,15 +2380,34 @@ def api_search():
 
     # Get updated credits after potential deduction
     remaining_credits = get_user_credits(user['id']) if user else 0
-    
+
+    # Build pagination metadata helper
+    def make_pagination(total, page, per_page):
+        total_pages = max(1, (total + per_page - 1) // per_page)
+        return {
+            'page': page,
+            'per_page': per_page,
+            'total': total,
+            'total_pages': total_pages,
+            'has_next': page < total_pages,
+            'has_prev': page > 1
+        }
+
     # Search by company number, name, address, or director
     if search_type == 'name':
-        results, suggestions = search_properties_by_company_name(search_value)
+        results, suggestions, total = search_properties_by_company_name(search_value, page=page, per_page=per_page)
         search_key = 'company_name'
+
+        # Record search history on first page
+        if page == 1 and user:
+            record_search_history(user['id'], search_type, search_value, total)
+
         return jsonify({
             'success': True,
             'results': results,
             'count': len(results),
+            'total': total,
+            'pagination': make_pagination(total, page, per_page),
             'suggestions': suggestions,
             'search_type': search_type,
             'credits_used': credits_used,
@@ -1800,13 +2415,19 @@ def api_search():
             search_key: search_value
         })
     elif search_type == 'address':
-        results = search_properties_by_address(search_value)
+        results, total = search_properties_by_address(search_value, page=page, per_page=per_page)
         suggestions = []
         search_key = 'address'
+
+        if page == 1 and user:
+            record_search_history(user['id'], search_type, search_value, total)
+
         return jsonify({
             'success': True,
             'results': results,
             'count': len(results),
+            'total': total,
+            'pagination': make_pagination(total, page, per_page),
             'suggestions': suggestions,
             'search_type': search_type,
             'credits_used': credits_used,
@@ -1815,6 +2436,7 @@ def api_search():
         })
     elif search_type == 'director':
         results, directors_found, suggestions, error = search_properties_by_director(search_value)
+        total = len(results)
         if error:
             return jsonify({
                 'success': False,
@@ -1826,10 +2448,16 @@ def api_search():
                 'credits_used': credits_used,
                 'remaining_credits': remaining_credits
             })
+
+        if page == 1 and user:
+            record_search_history(user['id'], search_type, search_value, total)
+
         return jsonify({
             'success': True,
             'results': results,
             'count': len(results),
+            'total': total,
+            'pagination': make_pagination(total, page, per_page),
             'suggestions': suggestions,
             'directors_found': directors_found,
             'search_type': search_type,
@@ -1838,13 +2466,19 @@ def api_search():
             'director_name': search_value
         })
     else:
-        results = search_properties_by_company(search_value)
+        results, total = search_properties_by_company(search_value, page=page, per_page=per_page)
         suggestions = []
         search_key = 'company_number'
+
+        if page == 1 and user:
+            record_search_history(user['id'], search_type, search_value, total)
+
         return jsonify({
             'success': True,
             'results': results,
             'count': len(results),
+            'total': total,
+            'pagination': make_pagination(total, page, per_page),
             'suggestions': suggestions,
             'search_type': search_type,
             'credits_used': credits_used,
@@ -1856,24 +2490,29 @@ def api_search():
 @app.route('/api/export/csv', methods=['POST'])
 def export_csv():
     """Export search results as CSV"""
+    # Rate limiting
+    allowed, retry_after = check_rate_limit('/api/export')
+    if not allowed:
+        return rate_limit_response(retry_after)
+
     data = request.get_json()
     search_type = data.get('search_type', 'number')
     search_value = data.get('search_value', '').strip()
-    
+
     if not search_value:
         return jsonify({'success': False, 'error': 'Search value is required'}), 400
-    
-    # Search by company number, name, address, or director
+
+    # Search by company number, name, address, or director (get all results for export)
     if search_type == 'name':
-        results, _ = search_properties_by_company_name(search_value)
+        results, _, _ = search_properties_by_company_name(search_value, per_page=10000)
     elif search_type == 'address':
-        results = search_properties_by_address(search_value)
+        results, _ = search_properties_by_address(search_value, per_page=10000)
     elif search_type == 'director':
         results, _, _, error = search_properties_by_director(search_value)
         if error:
             return jsonify({'success': False, 'error': error}), 400
     else:
-        results = search_properties_by_company(search_value)
+        results, _ = search_properties_by_company(search_value, per_page=10000)
     
     if not results:
         return jsonify({'success': False, 'error': 'No results to export'}), 400
@@ -1908,26 +2547,31 @@ def export_csv():
 @app.route('/api/export/json', methods=['POST'])
 def export_json():
     """Export search results as JSON"""
+    # Rate limiting
+    allowed, retry_after = check_rate_limit('/api/export')
+    if not allowed:
+        return rate_limit_response(retry_after)
+
     data = request.get_json()
     search_type = data.get('search_type', 'number')
     search_value = data.get('search_value', '').strip()
-    
+
     if not search_value:
         return jsonify({'success': False, 'error': 'Search value is required'}), 400
-    
-    # Search by company number, name, address, or director
+
+    # Search by company number, name, address, or director (get all results for export)
     if search_type == 'name':
-        results, _ = search_properties_by_company_name(search_value)
+        results, _, _ = search_properties_by_company_name(search_value, per_page=10000)
         directors_found = []
     elif search_type == 'address':
-        results = search_properties_by_address(search_value)
+        results, _ = search_properties_by_address(search_value, per_page=10000)
         directors_found = []
     elif search_type == 'director':
         results, directors_found, _, error = search_properties_by_director(search_value)
         if error:
             return jsonify({'success': False, 'error': error}), 400
     else:
-        results = search_properties_by_company(search_value)
+        results, _ = search_properties_by_company(search_value, per_page=10000)
         directors_found = []
     
     response_data = {
@@ -1942,6 +2586,111 @@ def export_json():
         response_data['directors_found'] = directors_found
     
     return jsonify(response_data)
+
+
+# ============================================
+# SEARCH HISTORY API
+# ============================================
+
+@app.route('/api/search/history', methods=['GET'])
+@login_required
+def api_search_history():
+    """Get the current user's search history."""
+    user = get_current_user()
+    limit = min(50, max(1, int(request.args.get('limit', 20))))
+    history = get_search_history(user['id'], limit=limit)
+
+    # Convert datetime objects to strings for JSON serialization
+    for entry in history:
+        if entry.get('created_at') and hasattr(entry['created_at'], 'isoformat'):
+            entry['created_at'] = entry['created_at'].isoformat()
+
+    return jsonify({
+        'success': True,
+        'history': history,
+        'count': len(history)
+    })
+
+
+# ============================================
+# RELATED COMPANIES API
+# ============================================
+
+@app.route('/api/search/related-companies', methods=['POST'])
+def api_related_companies():
+    """Find companies related to a given company by shared registered address."""
+    # Rate limiting
+    allowed, retry_after = check_rate_limit('/api/search')
+    if not allowed:
+        return rate_limit_response(retry_after)
+
+    data = request.get_json()
+    company_reg = data.get('company_registration_no', '').strip()
+
+    if not company_reg:
+        return jsonify({'success': False, 'error': 'Company registration number is required', 'related': []})
+
+    related = find_related_companies(company_reg)
+    return jsonify({
+        'success': True,
+        'related': related,
+        'count': len(related),
+        'source_company': company_reg
+    })
+
+
+# ============================================
+# COMPANY GROUP DETECTION API
+# ============================================
+
+@app.route('/api/search/company-group', methods=['POST'])
+def api_company_group():
+    """Detect corporate group structure for a given company."""
+    # Rate limiting
+    allowed, retry_after = check_rate_limit('/api/search')
+    if not allowed:
+        return rate_limit_response(retry_after)
+
+    data = request.get_json()
+    company_reg = data.get('company_registration_no', '').strip()
+
+    if not company_reg:
+        return jsonify({'success': False, 'error': 'Company registration number is required'})
+
+    group = detect_company_group(company_reg)
+    return jsonify({
+        'success': True,
+        'group': group,
+        'company_count': len(group.get('companies', [])),
+        'source_company': company_reg
+    })
+
+
+# ============================================
+# NETWORK GRAPH DATA API
+# ============================================
+
+@app.route('/api/search/network-graph', methods=['POST'])
+def api_network_graph():
+    """Get network graph data (nodes and edges) for a company's ownership structure."""
+    # Rate limiting
+    allowed, retry_after = check_rate_limit('/api/search')
+    if not allowed:
+        return rate_limit_response(retry_after)
+
+    data = request.get_json()
+    company_reg = data.get('company_registration_no', '').strip()
+
+    if not company_reg:
+        return jsonify({'success': False, 'error': 'Company registration number is required'})
+
+    graph = build_network_graph(company_reg)
+    return jsonify({
+        'success': True,
+        'graph': graph,
+        'node_count': len(graph.get('nodes', [])),
+        'edge_count': len(graph.get('edges', []))
+    })
 
 
 @app.route('/api/reload', methods=['POST'])
