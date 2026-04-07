@@ -5,6 +5,10 @@ Downloads the latest CCOD and OCOD full CSV snapshots from the HM Land Registry
 Use Land and Property Data service, loads them into PostgreSQL staging tables,
 then atomically swaps them with the production tables for zero-downtime updates.
 
+Designed for large datasets (~6GB per CSV, ~3M+ rows each). Uses disk-based
+streaming, batched COPY, and SQL-side ID linking to stay within GitHub Actions
+runner limits (7GB RAM, 14GB disk).
+
 Usage:
     python scripts/update_data.py
 
@@ -37,6 +41,9 @@ DATASETS = [
 
 # Safety: refuse to swap if new data has fewer than this fraction of old rows
 MIN_ROW_RATIO = 0.5
+
+# Rows per batch for COPY operations — keeps memory usage ~50-100MB per batch
+BATCH_SIZE = 50_000
 
 
 def log(msg):
@@ -73,13 +80,15 @@ def download_dataset(slug, dest_path):
     file_name = full_file.get('name', slug)
     log(f"Downloading {file_name} from {download_url} ...")
 
-    with requests.get(download_url, headers=headers, stream=True, timeout=600) as r:
+    with requests.get(download_url, headers=headers, stream=True, timeout=1800) as r:
         r.raise_for_status()
         total = 0
         with open(dest_path, 'wb') as f:
             for chunk in r.iter_content(chunk_size=1024 * 1024):
                 f.write(chunk)
                 total += len(chunk)
+                if total % (100 * 1024 * 1024) == 0:
+                    log(f"  ... {total / (1024*1024):.0f} MB downloaded")
         log(f"  Downloaded {total / (1024*1024):.1f} MB -> {dest_path}")
 
 
@@ -96,7 +105,12 @@ def normalize_upper(value):
 
 
 def create_staging_tables(conn):
-    """Create staging tables with the full schema including normalized columns."""
+    """Create staging tables with the full schema including normalized columns.
+
+    Includes a _row_num column on both tables so we can link proprietors to
+    properties entirely in SQL after COPY, avoiding loading millions of IDs
+    into Python memory.
+    """
     cur = conn.cursor()
 
     log("Dropping old staging tables if they exist ...")
@@ -107,6 +121,7 @@ def create_staging_tables(conn):
     cur.execute("""
         CREATE TABLE properties_staging (
             id SERIAL PRIMARY KEY,
+            _row_num INTEGER NOT NULL,
             title_number TEXT,
             tenure TEXT,
             property_address TEXT,
@@ -129,7 +144,8 @@ def create_staging_tables(conn):
     cur.execute("""
         CREATE TABLE proprietors_staging (
             id SERIAL PRIMARY KEY,
-            property_id INTEGER NOT NULL,
+            _row_num INTEGER NOT NULL,
+            property_id INTEGER NOT NULL DEFAULT 0,
             proprietor_number INTEGER NOT NULL,
             proprietor_name TEXT,
             company_registration_no TEXT,
@@ -146,14 +162,49 @@ def create_staging_tables(conn):
     conn.commit()
 
 
+def _flush_batch(cur, conn, prop_buf, propr_buf, prop_columns, propr_columns):
+    """COPY buffered property and proprietor rows into staging tables."""
+    if prop_buf.tell() > 0:
+        prop_buf.seek(0)
+        cur.copy_expert(
+            f"COPY properties_staging ({prop_columns}) FROM STDIN WITH CSV",
+            prop_buf,
+        )
+    if propr_buf.tell() > 0:
+        propr_buf.seek(0)
+        cur.copy_expert(
+            f"COPY proprietors_staging ({propr_columns}) FROM STDIN WITH CSV",
+            propr_buf,
+        )
+    conn.commit()
+
+
 def load_csv_into_staging(conn, csv_path, dataset):
-    """Load a CCOD or OCOD CSV into the staging tables using COPY."""
+    """Load a CCOD or OCOD CSV into staging tables using batched COPY.
+
+    Streams the CSV from disk, writing rows into small in-memory buffers
+    (BATCH_SIZE rows) and flushing via COPY. Each property row gets a
+    sequential _row_num; its proprietors get the same _row_num so they can
+    be linked via SQL after loading (no Python-side ID lookup needed).
+    """
     data_source = dataset['name']
     has_country = dataset['has_country']
 
     log(f"Loading {data_source} from {csv_path} ...")
 
-    # Read CSV and prepare property + proprietor buffers
+    prop_columns = (
+        '_row_num, title_number, tenure, property_address, district, county, region, '
+        'postcode, multiple_address_indicator, price_paid, date_proprietor_added, '
+        'additional_proprietor_indicator, data_source, property_address_upper, postcode_upper'
+    )
+    propr_columns = (
+        '_row_num, proprietor_number, proprietor_name, company_registration_no, '
+        'proprietorship_category, country_incorporated, '
+        'address_line_1, address_line_2, address_line_3, '
+        'company_reg_normalized, proprietor_name_upper'
+    )
+
+    cur = conn.cursor()
     prop_buf = io.StringIO()
     propr_buf = io.StringIO()
     prop_writer = csv.writer(prop_buf, quoting=csv.QUOTE_MINIMAL)
@@ -162,6 +213,7 @@ def load_csv_into_staging(conn, csv_path, dataset):
     properties_count = 0
     proprietors_count = 0
     skipped = 0
+    batch_rows = 0
 
     with open(csv_path, 'r', encoding='utf-8-sig') as f:
         reader = csv.DictReader(f)
@@ -170,47 +222,15 @@ def load_csv_into_staging(conn, csv_path, dataset):
             if not title_number:
                 continue
 
+            properties_count += 1
+            row_num = properties_count  # sequential, 1-based
+
             property_address = row.get('Property Address', '').strip()
             postcode = row.get('Postcode', '').strip()
 
-            # We'll use a placeholder for property_id — we insert properties first,
-            # then get the assigned IDs. Instead, batch-insert then link.
-            # For efficiency, we use a two-pass approach:
-            # Pass 1: COPY properties, get back IDs
-            # Pass 2: COPY proprietors with the IDs
-
-            # For now, accumulate in memory. We'll flush in batches.
-            properties_count += 1
-
-            # Collect proprietors for this row
-            row_proprietors = []
-            for prop_num in range(1, 5):
-                company_no = row.get(f'Company Registration No. ({prop_num})', '').strip()
-                proprietor_name = row.get(f'Proprietor Name ({prop_num})', '').strip()
-
-                if not company_no and not proprietor_name:
-                    continue
-                if not company_no:
-                    skipped += 1
-                    continue
-
-                country = ''
-                if has_country:
-                    country = row.get(f'Country Incorporated ({prop_num})', '').strip()
-
-                row_proprietors.append({
-                    'proprietor_number': prop_num,
-                    'proprietor_name': proprietor_name,
-                    'company_registration_no': company_no,
-                    'proprietorship_category': row.get(f'Proprietorship Category ({prop_num})', '').strip(),
-                    'country_incorporated': country,
-                    'address_line_1': row.get(f'Proprietor ({prop_num}) Address (1)', '').strip(),
-                    'address_line_2': row.get(f'Proprietor ({prop_num}) Address (2)', '').strip(),
-                    'address_line_3': row.get(f'Proprietor ({prop_num}) Address (3)', '').strip(),
-                })
-
             # Write property row
             prop_writer.writerow([
+                row_num,
                 title_number,
                 row.get('Tenure', '').strip(),
                 property_address,
@@ -227,83 +247,7 @@ def load_csv_into_staging(conn, csv_path, dataset):
                 normalize_upper(postcode),
             ])
 
-            # Write proprietor rows (property_id placeholder = properties_count, will fix later)
-            for p in row_proprietors:
-                proprietors_count += 1
-                propr_writer.writerow([
-                    0,  # placeholder property_id — will be updated
-                    p['proprietor_number'],
-                    p['proprietor_name'],
-                    p['company_registration_no'],
-                    p['proprietorship_category'],
-                    p['country_incorporated'],
-                    p['address_line_1'],
-                    p['address_line_2'],
-                    p['address_line_3'],
-                    normalize_company_reg(p['company_registration_no']),
-                    normalize_upper(p['proprietor_name']),
-                ])
-
-            if properties_count % 100000 == 0:
-                log(f"  Parsed {properties_count:,} rows ...")
-
-    log(f"  Parsed {data_source}: {properties_count:,} properties, {proprietors_count:,} proprietors, {skipped:,} skipped (no company no.)")
-
-    # --- Insert properties via COPY and retrieve IDs ---
-    log(f"  COPYing properties into staging ...")
-    prop_buf.seek(0)
-    cur = conn.cursor()
-
-    prop_columns = (
-        'title_number, tenure, property_address, district, county, region, '
-        'postcode, multiple_address_indicator, price_paid, date_proprietor_added, '
-        'additional_proprietor_indicator, data_source, property_address_upper, postcode_upper'
-    )
-    cur.copy_expert(
-        f"COPY properties_staging ({prop_columns}) FROM STDIN WITH CSV",
-        prop_buf
-    )
-    conn.commit()
-
-    # Get the ID range for the properties we just inserted
-    cur.execute("SELECT MIN(id), MAX(id) FROM properties_staging WHERE data_source = %s", (data_source,))
-    min_id, max_id = cur.fetchone()
-
-    if min_id is None:
-        log(f"  WARNING: No properties inserted for {data_source}")
-        return properties_count, proprietors_count
-
-    log(f"  Property IDs: {min_id} - {max_id}")
-
-    # Now we need to assign correct property_id to proprietors.
-    # Since properties were inserted in CSV order and got sequential IDs,
-    # we can map row_number -> id.
-    # Re-read the CSV to build proprietor rows with correct IDs.
-
-    log(f"  Building proprietor data with correct property IDs ...")
-    propr_buf2 = io.StringIO()
-    propr_writer2 = csv.writer(propr_buf2, quoting=csv.QUOTE_MINIMAL)
-
-    # Get ordered property IDs for this data source
-    cur.execute(
-        "SELECT id FROM properties_staging WHERE data_source = %s ORDER BY id",
-        (data_source,)
-    )
-    property_ids = [row[0] for row in cur.fetchall()]
-
-    prop_idx = 0
-    with open(csv_path, 'r', encoding='utf-8-sig') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            title_number = row.get('Title Number', '').strip()
-            if not title_number:
-                continue
-
-            if prop_idx >= len(property_ids):
-                break
-            property_id = property_ids[prop_idx]
-            prop_idx += 1
-
+            # Write proprietor rows with the same _row_num
             for prop_num in range(1, 5):
                 company_no = row.get(f'Company Registration No. ({prop_num})', '').strip()
                 proprietor_name = row.get(f'Proprietor Name ({prop_num})', '').strip()
@@ -311,14 +255,16 @@ def load_csv_into_staging(conn, csv_path, dataset):
                 if not company_no and not proprietor_name:
                     continue
                 if not company_no:
+                    skipped += 1
                     continue
 
                 country = ''
                 if has_country:
                     country = row.get(f'Country Incorporated ({prop_num})', '').strip()
 
-                propr_writer2.writerow([
-                    property_id,
+                proprietors_count += 1
+                propr_writer.writerow([
+                    row_num,
                     prop_num,
                     proprietor_name,
                     company_no,
@@ -331,21 +277,58 @@ def load_csv_into_staging(conn, csv_path, dataset):
                     normalize_upper(proprietor_name),
                 ])
 
-    log(f"  COPYing proprietors into staging ...")
-    propr_buf2.seek(0)
-    propr_columns = (
-        'property_id, proprietor_number, proprietor_name, company_registration_no, '
-        'proprietorship_category, country_incorporated, '
-        'address_line_1, address_line_2, address_line_3, '
-        'company_reg_normalized, proprietor_name_upper'
-    )
-    cur.copy_expert(
-        f"COPY proprietors_staging ({propr_columns}) FROM STDIN WITH CSV",
-        propr_buf2
-    )
-    conn.commit()
+            batch_rows += 1
+            if batch_rows >= BATCH_SIZE:
+                _flush_batch(cur, conn, prop_buf, propr_buf, prop_columns, propr_columns)
+                prop_buf = io.StringIO()
+                propr_buf = io.StringIO()
+                prop_writer = csv.writer(prop_buf, quoting=csv.QUOTE_MINIMAL)
+                propr_writer = csv.writer(propr_buf, quoting=csv.QUOTE_MINIMAL)
+                batch_rows = 0
+                if properties_count % 200_000 == 0:
+                    log(f"  Loaded {properties_count:,} properties ...")
+
+    # Flush remaining
+    _flush_batch(cur, conn, prop_buf, propr_buf, prop_columns, propr_columns)
+
+    log(f"  {data_source} loaded: {properties_count:,} properties, "
+        f"{proprietors_count:,} proprietors, {skipped:,} skipped (no company no.)")
 
     return properties_count, proprietors_count
+
+
+def link_proprietors_to_properties(conn):
+    """Set proprietors_staging.property_id from properties_staging using _row_num.
+
+    This runs entirely in PostgreSQL — no data pulled into Python. After
+    linking, both _row_num columns are dropped.
+    """
+    cur = conn.cursor()
+
+    log("Building index on _row_num for join ...")
+    t0 = time.time()
+    cur.execute("CREATE INDEX idx_stg_prop_row_num ON properties_staging(_row_num)")
+    cur.execute("CREATE INDEX idx_stg_propr_row_num ON proprietors_staging(_row_num)")
+    conn.commit()
+    log(f"  Indexes created ({time.time() - t0:.1f}s)")
+
+    log("Linking proprietors to properties via _row_num ...")
+    t0 = time.time()
+    cur.execute("""
+        UPDATE proprietors_staging ps
+        SET property_id = p.id
+        FROM properties_staging p
+        WHERE ps._row_num = p._row_num
+    """)
+    updated = cur.rowcount
+    conn.commit()
+    log(f"  Linked {updated:,} proprietors ({time.time() - t0:.1f}s)")
+
+    # Drop the temporary columns — no longer needed
+    log("Dropping _row_num columns ...")
+    cur.execute("ALTER TABLE properties_staging DROP COLUMN _row_num")
+    cur.execute("ALTER TABLE proprietors_staging DROP COLUMN _row_num")
+    conn.commit()
 
 
 def build_indexes(conn):
@@ -471,38 +454,36 @@ def main():
     t_start = time.time()
     log("=" * 60)
     log("LAND REGISTRY DATA UPDATE")
+    log(f"  Batch size: {BATCH_SIZE:,} rows")
     log("=" * 60)
 
     conn = psycopg2.connect(DATABASE_URL, connect_timeout=30)
 
     try:
+        # Step 1: Create staging tables
+        create_staging_tables(conn)
+
+        # Step 2: Download and load each dataset one at a time to save disk
         with tempfile.TemporaryDirectory() as tmpdir:
-            # Step 1: Download CSVs
-            csv_paths = {}
             for ds in DATASETS:
-                dest = os.path.join(tmpdir, f"{ds['name']}_FULL.csv")
-                download_dataset(ds['slug'], dest)
-                csv_paths[ds['name']] = dest
+                csv_path = os.path.join(tmpdir, f"{ds['name']}_FULL.csv")
+                download_dataset(ds['slug'], csv_path)
+                load_csv_into_staging(conn, csv_path, ds)
+                # Delete CSV immediately to free disk for the next dataset
+                os.remove(csv_path)
+                log(f"  Deleted {csv_path} to free disk space")
 
-            # Step 2: Create staging tables
-            create_staging_tables(conn)
+        # Step 3: Link proprietors to properties using _row_num (all in SQL)
+        link_proprietors_to_properties(conn)
 
-            # Step 3: Load data into staging
-            total_props = 0
-            total_proprs = 0
-            for ds in DATASETS:
-                p, pr = load_csv_into_staging(conn, csv_paths[ds['name']], ds)
-                total_props += p
-                total_proprs += pr
+        # Step 4: Build indexes on staging
+        build_indexes(conn)
 
-            # Step 4: Build indexes on staging
-            build_indexes(conn)
+        # Step 5: Validate
+        staging_props, staging_proprs = validate_counts(conn)
 
-            # Step 5: Validate
-            staging_props, staging_proprs = validate_counts(conn)
-
-            # Step 6: Atomic swap
-            atomic_swap(conn)
+        # Step 6: Atomic swap
+        atomic_swap(conn)
 
         elapsed = time.time() - t_start
         log("=" * 60)
