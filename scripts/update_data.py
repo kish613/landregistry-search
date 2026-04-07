@@ -61,11 +61,16 @@ def download_dataset(slug, dest_path):
     resp.raise_for_status()
     metadata = resp.json()
 
-    # Find the latest full file resource
-    resources = metadata.get('resources', [])
+    # The API wraps the dataset info under a 'result' key
+    result = metadata.get('result', metadata)
+
+    # Find the latest full file resource — check both 'resources' and 'public_resources'
+    resources = result.get('resources', []) or result.get('public_resources', [])
     full_file = None
     for r in resources:
-        if 'full' in r.get('name', '').lower() or 'full' in r.get('description', '').lower():
+        r_name = r.get('file_name', '') or r.get('name', '')
+        description = r.get('description', '')
+        if 'full' in r_name.lower() or 'full' in description.lower():
             full_file = r
             break
     if not full_file and resources:
@@ -73,11 +78,16 @@ def download_dataset(slug, dest_path):
     if not full_file:
         raise RuntimeError(f"No downloadable resource found for dataset '{slug}'")
 
+    # Build download URL: prefer explicit url/download_url, fall back to constructing from file_name
     download_url = full_file.get('url') or full_file.get('download_url')
+    resource_file_name = full_file.get('file_name') or full_file.get('name')
     if not download_url:
-        raise RuntimeError(f"No download URL in resource for '{slug}': {full_file}")
+        if resource_file_name:
+            download_url = f"{API_BASE}/datasets/{slug}/{resource_file_name}"
+        else:
+            raise RuntimeError(f"No download URL or file_name in resource for '{slug}': {full_file}")
 
-    file_name = full_file.get('name', slug)
+    file_name = resource_file_name or slug
     log(f"Downloading {file_name} from {download_url} ...")
 
     with requests.get(download_url, headers=headers, stream=True, timeout=1800) as r:
