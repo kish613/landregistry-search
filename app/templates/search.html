@@ -1736,9 +1736,13 @@
                         </div>
                         
                         <div class="lg:text-right lg:min-w-[200px] pt-4 lg:pt-0 border-t lg:border-t-0 lg:border-l border-white/5 lg:pl-4">
-                            <div class="text-[10px] uppercase tracking-widest text-zinc-600 mb-1">Proprietor</div>
+                            <div class="flex items-center gap-2 lg:justify-end mb-1">
+                                <div class="text-[10px] uppercase tracking-widest text-zinc-600">Proprietor</div>
+                                ${prop.data_source === 'OCOD' ? `<span class="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">Overseas</span>` : `<span class="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">UK</span>`}
+                            </div>
                             <div class="text-sm text-white font-medium mb-1">${escapeHtml(prop.proprietor_name || 'N/A')}</div>
                             ${prop.company_registration_no ? `<div class="text-xs text-zinc-500 font-mono">Co. ${escapeHtml(prop.company_registration_no)}</div>` : ''}
+                            ${prop.country_incorporated ? `<div class="text-xs text-zinc-500 mt-1">Incorporated: ${escapeHtml(prop.country_incorporated)}</div>` : ''}
                             ${prop.date_proprietor_added ? `<div class="text-xs text-zinc-600 mt-2">Added: ${escapeHtml(prop.date_proprietor_added)}</div>` : ''}
                         </div>
                     </div>
@@ -1871,7 +1875,8 @@
             const headers = [
                 'title_number', 'tenure', 'property_address', 'district', 'county',
                 'region', 'postcode', 'price_paid', 'proprietor_name',
-                'company_registration_no', 'proprietorship_category', 'date_proprietor_added'
+                'company_registration_no', 'proprietorship_category', 'date_proprietor_added',
+                'data_source', 'country_incorporated'
             ];
             
             // CSV header row

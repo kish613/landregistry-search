@@ -580,7 +580,9 @@ def search_properties_by_company(company_number):
                 pr.address_line_1,
                 pr.address_line_2,
                 pr.address_line_3,
-                pr.company_registration_no
+                pr.company_registration_no,
+                COALESCE(p.data_source, 'CCOD') as data_source,
+                pr.country_incorporated
             FROM properties p
             INNER JOIN proprietors pr ON p.id = pr.property_id
             WHERE pr.company_reg_normalized = %s
@@ -589,7 +591,7 @@ def search_properties_by_company(company_number):
     else:
         # SQLite fallback: use function-based query (no normalized column in SQLite)
         cursor.execute("""
-            SELECT 
+            SELECT
                 p.id,
                 p.title_number,
                 p.tenure,
@@ -605,7 +607,9 @@ def search_properties_by_company(company_number):
                 pr.address_line_1,
                 pr.address_line_2,
                 pr.address_line_3,
-                pr.company_registration_no
+                pr.company_registration_no,
+                'CCOD' as data_source,
+                NULL as country_incorporated
             FROM properties p
             INNER JOIN proprietors pr ON p.id = pr.property_id
             WHERE UPPER(REPLACE(REPLACE(REPLACE(REPLACE(TRIM(pr.company_registration_no), '(', ''), ')', ''), ' ', ''), '-', '')) = ?
@@ -668,7 +672,9 @@ def search_properties_by_company_name(company_name, fuzzy_threshold=70):
                 pr.address_line_1,
                 pr.address_line_2,
                 pr.address_line_3,
-                pr.company_registration_no
+                pr.company_registration_no,
+                COALESCE(p.data_source, 'CCOD') as data_source,
+                pr.country_incorporated
             FROM properties p
             INNER JOIN proprietors pr ON p.id = pr.property_id
             WHERE pr.proprietor_name_upper LIKE %s
@@ -677,7 +683,7 @@ def search_properties_by_company_name(company_name, fuzzy_threshold=70):
     else:
         # SQLite fallback: use function-based query
         cursor.execute("""
-            SELECT 
+            SELECT
                 p.id,
                 p.title_number,
                 p.tenure,
@@ -693,7 +699,9 @@ def search_properties_by_company_name(company_name, fuzzy_threshold=70):
                 pr.address_line_1,
                 pr.address_line_2,
                 pr.address_line_3,
-                pr.company_registration_no
+                pr.company_registration_no,
+                'CCOD' as data_source,
+                NULL as country_incorporated
             FROM properties p
             INNER JOIN proprietors pr ON p.id = pr.property_id
             WHERE UPPER(TRIM(pr.proprietor_name)) LIKE ?
@@ -764,7 +772,9 @@ def search_properties_by_address(address_query):
                 pr.address_line_1,
                 pr.address_line_2,
                 pr.address_line_3,
-                pr.company_registration_no
+                pr.company_registration_no,
+                COALESCE(p.data_source, 'CCOD') as data_source,
+                pr.country_incorporated
             FROM properties p
             INNER JOIN proprietors pr ON p.id = pr.property_id
             WHERE p.property_address_upper LIKE %s
@@ -775,7 +785,7 @@ def search_properties_by_address(address_query):
     else:
         # SQLite fallback: use function-based query
         cursor.execute("""
-            SELECT 
+            SELECT
                 p.id,
                 p.title_number,
                 p.tenure,
@@ -791,7 +801,9 @@ def search_properties_by_address(address_query):
                 pr.address_line_1,
                 pr.address_line_2,
                 pr.address_line_3,
-                pr.company_registration_no
+                pr.company_registration_no,
+                'CCOD' as data_source,
+                NULL as country_incorporated
             FROM properties p
             INNER JOIN proprietors pr ON p.id = pr.property_id
             WHERE UPPER(TRIM(p.property_address)) LIKE ?
@@ -1049,7 +1061,9 @@ def search_properties_by_director(director_name):
                 pr.address_line_1,
                 pr.address_line_2,
                 pr.address_line_3,
-                pr.company_registration_no
+                pr.company_registration_no,
+                COALESCE(p.data_source, 'CCOD') as data_source,
+                pr.country_incorporated
             FROM properties p
             INNER JOIN proprietors pr ON p.id = pr.property_id
             WHERE pr.company_reg_normalized IN ({placeholders})
@@ -1059,7 +1073,7 @@ def search_properties_by_director(director_name):
     else:
         # SQLite fallback: use function-based query
         cursor.execute(f"""
-            SELECT 
+            SELECT
                 p.id,
                 p.title_number,
                 p.tenure,
@@ -1075,10 +1089,12 @@ def search_properties_by_director(director_name):
                 pr.address_line_1,
                 pr.address_line_2,
                 pr.address_line_3,
-                pr.company_registration_no
+                pr.company_registration_no,
+                'CCOD' as data_source,
+                NULL as country_incorporated
             FROM properties p
             INNER JOIN proprietors pr ON p.id = pr.property_id
-            WHERE UPPER(REPLACE(REPLACE(REPLACE(REPLACE(TRIM(pr.company_registration_no), '(', ''), ')', ''), ' ', ''), '-', '')) 
+            WHERE UPPER(REPLACE(REPLACE(REPLACE(REPLACE(TRIM(pr.company_registration_no), '(', ''), ')', ''), ' ', ''), '-', ''))
                   IN ({','.join(['?'] * len(company_list))})
             ORDER BY pr.proprietor_name, p.property_address
             LIMIT 500
@@ -1677,7 +1693,9 @@ def api_search_director_properties():
                 pr.address_line_1,
                 pr.address_line_2,
                 pr.address_line_3,
-                pr.company_registration_no
+                pr.company_registration_no,
+                COALESCE(p.data_source, 'CCOD') as data_source,
+                pr.country_incorporated
             FROM properties p
             INNER JOIN proprietors pr ON p.id = pr.property_id
             WHERE pr.company_reg_normalized IN ({placeholders})
@@ -1703,7 +1721,9 @@ def api_search_director_properties():
                 pr.address_line_1,
                 pr.address_line_2,
                 pr.address_line_3,
-                pr.company_registration_no
+                pr.company_registration_no,
+                'CCOD' as data_source,
+                NULL as country_incorporated
             FROM properties p
             INNER JOIN proprietors pr ON p.id = pr.property_id
             WHERE UPPER(REPLACE(REPLACE(REPLACE(REPLACE(TRIM(pr.company_registration_no), '(', ''), ')', ''), ' ', ''), '-', ''))
