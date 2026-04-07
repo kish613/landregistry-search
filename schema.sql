@@ -1,5 +1,5 @@
 -- Property Ownership Database Schema
--- SQLite database for storing property ownership data from CSV
+-- Stores property ownership data from CCOD (UK companies) and OCOD (overseas companies)
 
 CREATE TABLE IF NOT EXISTS properties (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -14,8 +14,8 @@ CREATE TABLE IF NOT EXISTS properties (
     price_paid TEXT,
     date_proprietor_added TEXT,
     additional_proprietor_indicator TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(title_number)
+    data_source TEXT DEFAULT 'CCOD', -- 'CCOD' (UK companies) or 'OCOD' (overseas companies)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS proprietors (
@@ -25,11 +25,11 @@ CREATE TABLE IF NOT EXISTS proprietors (
     proprietor_name TEXT,
     company_registration_no TEXT,
     proprietorship_category TEXT,
+    country_incorporated TEXT, -- Country of incorporation (OCOD only, NULL for CCOD)
     address_line_1 TEXT,
     address_line_2 TEXT,
     address_line_3 TEXT,
-    FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE CASCADE,
-    UNIQUE(property_id, proprietor_number)
+    FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE CASCADE
 );
 
 -- Indexes for fast lookups
