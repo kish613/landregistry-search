@@ -23,6 +23,7 @@ import os
 import sys
 import time
 import tempfile
+import zipfile
 import requests
 import psycopg2
 
@@ -52,7 +53,17 @@ def log(msg):
 
 
 def download_dataset(slug, dest_path):
-    """Download the latest full CSV for a dataset via the Land Registry API."""
+    """Download the latest full CSV for a dataset via the Land Registry API.
+
+    The API follows a two-step flow:
+    1. GET /datasets/{slug}         — returns dataset metadata including resource file names.
+    2. GET /datasets/{slug}/{file}  — returns a JSON body with a time-limited pre-signed
+                                      ``download_url``; the actual file bytes are fetched
+                                      from that URL *without* an Authorization header.
+
+    Resources are delivered as ZIP archives containing a single CSV file, which is
+    extracted to ``dest_path``.
+    """
     url = f"{API_BASE}/datasets/{slug}"
     headers = {'Authorization': API_KEY}
 
@@ -78,28 +89,75 @@ def download_dataset(slug, dest_path):
     if not full_file:
         raise RuntimeError(f"No downloadable resource found for dataset '{slug}'")
 
-    # Build download URL: prefer explicit url/download_url, fall back to constructing from file_name
-    download_url = full_file.get('url') or full_file.get('download_url')
     resource_file_name = full_file.get('file_name') or full_file.get('name')
+
+    # Resolve the actual download URL.
+    # Some resources carry an explicit URL; otherwise call the download-link endpoint
+    # which returns a time-limited pre-signed URL in result.download_url.
+    download_url = full_file.get('url') or full_file.get('download_url')
     if not download_url:
-        if resource_file_name:
-            download_url = f"{API_BASE}/datasets/{slug}/{resource_file_name}"
-        else:
+        if not resource_file_name:
             raise RuntimeError(f"No download URL or file_name in resource for '{slug}': {full_file}")
+        link_url = f"{API_BASE}/datasets/{slug}/{resource_file_name}"
+        log(f"Getting download link for {resource_file_name} ...")
+        link_resp = requests.get(link_url, headers=headers, timeout=30)
+        link_resp.raise_for_status()
+        link_data = link_resp.json()
+        download_url = link_data.get('result', {}).get('download_url')
+        if not download_url:
+            raise RuntimeError(
+                f"No download_url in response for '{slug}/{resource_file_name}': {link_data}"
+            )
 
     file_name = resource_file_name or slug
-    log(f"Downloading {file_name} from {download_url} ...")
+    log(f"Downloading {file_name} ...")
 
-    with requests.get(download_url, headers=headers, stream=True, timeout=1800) as r:
+    # The pre-signed download URL must be fetched WITHOUT the Authorization header;
+    # sending it alongside the URL's own credentials causes AWS S3 to reject the
+    # request with 403 ("Only one auth mechanism allowed").
+    with requests.get(download_url, stream=True, timeout=1800) as r:
         r.raise_for_status()
         total = 0
-        with open(dest_path, 'wb') as f:
-            for chunk in r.iter_content(chunk_size=1024 * 1024):
-                f.write(chunk)
-                total += len(chunk)
-                if total % (100 * 1024 * 1024) == 0:
-                    log(f"  ... {total / (1024*1024):.0f} MB downloaded")
-        log(f"  Downloaded {total / (1024*1024):.1f} MB -> {dest_path}")
+        # Determine whether this is a ZIP by the resource file name or the download URL
+        url_for_ext = resource_file_name or download_url or ''
+        if url_for_ext.lower().endswith('.zip'):
+            # Download to a temporary ZIP then extract the CSV inside
+            zip_fd, zip_path = tempfile.mkstemp(suffix='.zip')
+            try:
+                with os.fdopen(zip_fd, 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=1024 * 1024):
+                        f.write(chunk)
+                        total += len(chunk)
+                        if total % (100 * 1024 * 1024) == 0:
+                            log(f"  ... {total / (1024*1024):.0f} MB downloaded")
+                log(f"  Downloaded {total / (1024*1024):.1f} MB — extracting CSV from ZIP ...")
+                dest_dir = os.path.realpath(os.path.dirname(dest_path))
+                with zipfile.ZipFile(zip_path, 'r') as z:
+                    csv_files = [n for n in z.namelist() if n.lower().endswith('.csv')]
+                    if not csv_files:
+                        raise RuntimeError(f"No CSV file found inside ZIP for dataset '{slug}'")
+                    # Guard against path traversal: ensure the extracted file stays within dest_dir
+                    safe_name = os.path.basename(csv_files[0])
+                    extracted_path = os.path.realpath(os.path.join(dest_dir, safe_name))
+                    if not extracted_path.startswith(dest_dir + os.sep) and extracted_path != dest_dir:
+                        raise RuntimeError(f"Unsafe path in ZIP entry: {csv_files[0]}")
+                    with z.open(csv_files[0]) as src, open(extracted_path, 'wb') as dst:
+                        for chunk in iter(lambda: src.read(1024 * 1024), b''):
+                            dst.write(chunk)
+                    if extracted_path != dest_path:
+                        os.replace(extracted_path, dest_path)
+                log(f"  Extracted {csv_files[0]} -> {dest_path}")
+            finally:
+                if os.path.exists(zip_path):
+                    os.unlink(zip_path)
+        else:
+            with open(dest_path, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=1024 * 1024):
+                    f.write(chunk)
+                    total += len(chunk)
+                    if total % (100 * 1024 * 1024) == 0:
+                        log(f"  ... {total / (1024*1024):.0f} MB downloaded")
+            log(f"  Downloaded {total / (1024*1024):.1f} MB -> {dest_path}")
 
 
 def normalize_company_reg(value):
