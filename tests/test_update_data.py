@@ -1,9 +1,11 @@
 """Tests for the download_dataset resource parsing in update_data.py."""
 
+import io
 import os
 import sys
 import tempfile
 import unittest
+import zipfile
 from unittest.mock import patch, MagicMock
 
 # Make the scripts directory importable
@@ -12,6 +14,31 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 # Patch env vars before importing the module
 with patch.dict(os.environ, {'DATABASE_URL': 'fake', 'LAND_REGISTRY_API_KEY': 'fake-key'}):
     import update_data
+
+
+def _make_zip_bytes(csv_name='CCOD_FULL_2026_04.csv',
+                    csv_content=b'Title Number,Tenure\nABC123,Freehold\n'):
+    """Return bytes of a ZIP archive containing one CSV file."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', compression=zipfile.ZIP_DEFLATED) as z:
+        z.writestr(csv_name, csv_content)
+    return buf.getvalue()
+
+
+def _make_link_resp(download_url='https://example.com/presigned/download'):
+    """Return a mock for the download-link API response."""
+    link_resp = MagicMock()
+    link_resp.json.return_value = {'result': {'download_url': download_url}}
+    return link_resp
+
+
+def _make_download_resp(zip_bytes):
+    """Return a context-manager mock that streams ``zip_bytes``."""
+    download_resp = MagicMock()
+    download_resp.__enter__ = MagicMock(return_value=download_resp)
+    download_resp.__exit__ = MagicMock(return_value=False)
+    download_resp.iter_content.return_value = [zip_bytes]
+    return download_resp
 
 
 class TestDownloadDatasetParsing(unittest.TestCase):
@@ -34,12 +61,12 @@ class TestDownloadDatasetParsing(unittest.TestCase):
         metadata_resp = MagicMock()
         metadata_resp.json.return_value = api_response
 
-        download_resp = MagicMock()
-        download_resp.__enter__ = MagicMock(return_value=download_resp)
-        download_resp.__exit__ = MagicMock(return_value=False)
-        download_resp.iter_content.return_value = [b'fake-csv-data']
-
-        mock_get.side_effect = [metadata_resp, download_resp]
+        zip_bytes = _make_zip_bytes()
+        mock_get.side_effect = [
+            metadata_resp,
+            _make_link_resp(),
+            _make_download_resp(zip_bytes),
+        ]
 
         with tempfile.NamedTemporaryFile(suffix='.csv', delete=False) as f:
             dest = f.name
@@ -49,10 +76,15 @@ class TestDownloadDatasetParsing(unittest.TestCase):
         finally:
             os.unlink(dest)
 
-        # The download URL should be constructed from file_name
-        download_call = mock_get.call_args_list[1]
-        self.assertIn('ccod', download_call[0][0])
-        self.assertIn('CCOD_FULL_2026_04.zip', download_call[0][0])
+        # The download-link URL (call #1) should reference the dataset and file name
+        link_call = mock_get.call_args_list[1]
+        self.assertIn('ccod', link_call[0][0])
+        self.assertIn('CCOD_FULL_2026_04.zip', link_call[0][0])
+
+        # The actual download (call #2) must NOT include the Authorization header
+        download_call = mock_get.call_args_list[2]
+        self.assertEqual(download_call[0][0], 'https://example.com/presigned/download')
+        self.assertIsNone(download_call[1].get('headers', {}).get('Authorization'))
 
     @patch('update_data.requests.get')
     def test_public_resources_fallback(self, mock_get):
@@ -71,12 +103,12 @@ class TestDownloadDatasetParsing(unittest.TestCase):
         metadata_resp = MagicMock()
         metadata_resp.json.return_value = api_response
 
-        download_resp = MagicMock()
-        download_resp.__enter__ = MagicMock(return_value=download_resp)
-        download_resp.__exit__ = MagicMock(return_value=False)
-        download_resp.iter_content.return_value = [b'fake-csv-data']
-
-        mock_get.side_effect = [metadata_resp, download_resp]
+        zip_bytes = _make_zip_bytes()
+        mock_get.side_effect = [
+            metadata_resp,
+            _make_link_resp(),
+            _make_download_resp(zip_bytes),
+        ]
 
         with tempfile.NamedTemporaryFile(suffix='.csv', delete=False) as f:
             dest = f.name
@@ -86,8 +118,8 @@ class TestDownloadDatasetParsing(unittest.TestCase):
         finally:
             os.unlink(dest)
 
-        download_call = mock_get.call_args_list[1]
-        self.assertIn('CCOD_FULL_2026_04.zip', download_call[0][0])
+        link_call = mock_get.call_args_list[1]
+        self.assertIn('CCOD_FULL_2026_04.zip', link_call[0][0])
 
     @patch('update_data.requests.get')
     def test_selects_full_file_by_file_name(self, mock_get):
@@ -103,12 +135,12 @@ class TestDownloadDatasetParsing(unittest.TestCase):
         metadata_resp = MagicMock()
         metadata_resp.json.return_value = api_response
 
-        download_resp = MagicMock()
-        download_resp.__enter__ = MagicMock(return_value=download_resp)
-        download_resp.__exit__ = MagicMock(return_value=False)
-        download_resp.iter_content.return_value = [b'fake-csv-data']
-
-        mock_get.side_effect = [metadata_resp, download_resp]
+        zip_bytes = _make_zip_bytes()
+        mock_get.side_effect = [
+            metadata_resp,
+            _make_link_resp(),
+            _make_download_resp(zip_bytes),
+        ]
 
         with tempfile.NamedTemporaryFile(suffix='.csv', delete=False) as f:
             dest = f.name
@@ -118,12 +150,12 @@ class TestDownloadDatasetParsing(unittest.TestCase):
         finally:
             os.unlink(dest)
 
-        download_call = mock_get.call_args_list[1]
-        self.assertIn('CCOD_FULL_2026_04.zip', download_call[0][0])
+        link_call = mock_get.call_args_list[1]
+        self.assertIn('CCOD_FULL_2026_04.zip', link_call[0][0])
 
     @patch('update_data.requests.get')
     def test_explicit_url_takes_priority(self, mock_get):
-        """If resource has an explicit 'url', it should be used directly."""
+        """If resource has an explicit 'url', it is used directly (no download-link call)."""
         api_response = {
             'result': {
                 'resources': [
@@ -138,10 +170,8 @@ class TestDownloadDatasetParsing(unittest.TestCase):
         metadata_resp = MagicMock()
         metadata_resp.json.return_value = api_response
 
-        download_resp = MagicMock()
-        download_resp.__enter__ = MagicMock(return_value=download_resp)
-        download_resp.__exit__ = MagicMock(return_value=False)
-        download_resp.iter_content.return_value = [b'fake-csv-data']
+        zip_bytes = _make_zip_bytes()
+        download_resp = _make_download_resp(zip_bytes)
 
         mock_get.side_effect = [metadata_resp, download_resp]
 
@@ -153,6 +183,8 @@ class TestDownloadDatasetParsing(unittest.TestCase):
         finally:
             os.unlink(dest)
 
+        # Only two calls: metadata + download (no separate download-link call)
+        self.assertEqual(len(mock_get.call_args_list), 2)
         download_call = mock_get.call_args_list[1]
         self.assertEqual(download_call[0][0], 'https://example.com/direct-download/CCOD_FULL.zip')
 
@@ -189,12 +221,12 @@ class TestDownloadDatasetParsing(unittest.TestCase):
         metadata_resp = MagicMock()
         metadata_resp.json.return_value = api_response
 
-        download_resp = MagicMock()
-        download_resp.__enter__ = MagicMock(return_value=download_resp)
-        download_resp.__exit__ = MagicMock(return_value=False)
-        download_resp.iter_content.return_value = [b'fake-csv-data']
-
-        mock_get.side_effect = [metadata_resp, download_resp]
+        zip_bytes = _make_zip_bytes()
+        mock_get.side_effect = [
+            metadata_resp,
+            _make_link_resp(),
+            _make_download_resp(zip_bytes),
+        ]
 
         with tempfile.NamedTemporaryFile(suffix='.csv', delete=False) as f:
             dest = f.name
@@ -204,8 +236,8 @@ class TestDownloadDatasetParsing(unittest.TestCase):
         finally:
             os.unlink(dest)
 
-        download_call = mock_get.call_args_list[1]
-        self.assertIn('CCOD_FULL_2026_04.zip', download_call[0][0])
+        link_call = mock_get.call_args_list[1]
+        self.assertIn('CCOD_FULL_2026_04.zip', link_call[0][0])
 
 
 if __name__ == '__main__':
