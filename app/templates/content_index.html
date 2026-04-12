@@ -1,6 +1,23 @@
-{% extends "seo_base.html" %}
+{% extends "base.html" %}
 
-{% block structured_data %}
+{% block title %}{{ meta_title }}{% endblock %}
+
+{% block meta %}
+<meta name="description" content="{{ meta_description }}">
+<meta name="robots" content="{{ meta_robots|default('index, follow') }}">
+<link rel="canonical" href="{{ canonical_url }}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ canonical_url }}">
+<meta property="og:title" content="{{ meta_title }}">
+<meta property="og:description" content="{{ meta_description }}">
+<meta property="og:site_name" content="LandRegistry.company">
+<meta property="og:image" content="{{ site_origin }}/static/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ meta_title }}">
+<meta name="twitter:description" content="{{ meta_description }}">
+{% endblock %}
+
+{% block head_extra %}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -21,43 +38,59 @@
 {% endblock %}
 
 {% block content %}
-<main>
-    <section class="hero hero-compact">
-        <div class="shell">
-            <p class="eyebrow">{{ eyebrow }}</p>
-            <h1>{{ page_title }}</h1>
-            <p class="hero-copy">{{ page_description }}</p>
+    <!-- Hero -->
+    <header class="pt-32 pb-16 bg-zinc-950 border-b border-white/5">
+        <div class="max-w-7xl mx-auto px-6 text-center">
+            <span class="uppercase text-[10px] text-zinc-500 tracking-[0.3em] border border-white/10 px-4 py-1.5 rounded-full bg-white/5 inline-flex items-center gap-2 mb-8">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                {{ eyebrow }}
+            </span>
+            <h1 class="text-4xl md:text-5xl lg:text-6xl text-white font-medium tracking-tighter mb-6">
+                {{ page_title }}
+            </h1>
+            <p class="text-lg text-zinc-400 font-light max-w-2xl mx-auto leading-relaxed">
+                {{ page_description }}
+            </p>
         </div>
-    </section>
+    </header>
 
-    <section class="section">
-        <div class="shell">
-            <div class="card-grid">
+    <!-- Content Grid -->
+    <section class="bg-zinc-950 py-16">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {% for item in items %}
-                <article class="card">
-                    <p class="kicker">{{ item.primary_keyword }}</p>
-                    <h2><a href="{{ item.canonical_path }}">{{ item.title }}</a></h2>
-                    <p>{{ item.description }}</p>
-                    <div class="card-meta">
+                <a href="{{ item.canonical_path }}" class="glass-panel rounded-3xl p-8 hover-lift group block">
+                    <span class="uppercase text-[10px] text-emerald-400 tracking-widest font-semibold">{{ item.primary_keyword }}</span>
+                    <h2 class="text-xl text-white font-medium mt-3 mb-4 tracking-tight group-hover:text-zinc-200 transition-colors">{{ item.title }}</h2>
+                    <p class="text-zinc-500 text-sm leading-relaxed mb-6">{{ item.description }}</p>
+                    <div class="flex items-center gap-4 text-[10px] uppercase tracking-widest text-zinc-600 mb-4">
                         <span>Updated {{ item.updated_at }}</span>
                         <span>{{ item.intent }}</span>
                     </div>
-                    <a href="{{ item.canonical_path }}" class="text-link">Read the guide</a>
-                </article>
+                    <span class="text-sm text-amber-400 font-semibold group-hover:text-amber-300 transition-colors flex items-center gap-2">
+                        Read the guide
+                        <iconify-icon icon="solar:arrow-right-linear" width="14" class="group-hover:translate-x-1 transition-transform"></iconify-icon>
+                    </span>
+                </a>
                 {% endfor %}
             </div>
         </div>
     </section>
 
-    <section class="section section-muted">
-        <div class="shell split-callout">
-            <div>
-                <p class="eyebrow">Paid-search acquisition</p>
-                <h2>Move from research to action</h2>
-                <p>Every guide is built to answer legal and due-diligence questions, then move the reader into a company ownership search with one clear next step.</p>
-            </div>
-            <a href="/search" class="button button-primary" data-track-event="content_cta_click" data-page-type="{{ page_type }}" data-cta-variant="index-primary">Open the search tool</a>
+    <!-- CTA Section -->
+    <section class="bg-zinc-950 border-t border-white/5 py-24">
+        <div class="max-w-3xl mx-auto px-6 text-center">
+            <span class="uppercase block text-[10px] text-zinc-500 tracking-widest mb-4">Next step</span>
+            <h2 class="text-3xl md:text-4xl text-white font-medium tracking-tight mb-6">
+                Move from research to action
+            </h2>
+            <p class="text-zinc-400 text-lg mb-10 max-w-xl mx-auto">
+                Every guide is built to answer legal and due-diligence questions, then move the reader into a company ownership search.
+            </p>
+            <a href="/search" class="inline-flex items-center gap-3 bg-white text-black rounded-full px-10 py-5 hover:bg-zinc-200 transition-all shadow-[0_0_40px_rgba(255,255,255,0.15)] hover:shadow-[0_0_60px_rgba(255,255,255,0.25)] group">
+                <span class="text-sm tracking-wider uppercase font-semibold">Open the search tool</span>
+                <iconify-icon icon="solar:arrow-right-linear" width="18" class="group-hover:translate-x-1 transition-transform"></iconify-icon>
+            </a>
         </div>
     </section>
-</main>
 {% endblock %}

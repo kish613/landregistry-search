@@ -1,6 +1,23 @@
-{% extends "seo_base.html" %}
+{% extends "base.html" %}
 
-{% block structured_data %}
+{% block title %}{{ item.title }} | LandRegistry.company{% endblock %}
+
+{% block meta %}
+<meta name="description" content="{{ item.description }}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ site_origin }}{{ item.canonical_path }}">
+<meta property="og:type" content="article">
+<meta property="og:url" content="{{ site_origin }}{{ item.canonical_path }}">
+<meta property="og:title" content="{{ item.title }} | LandRegistry.company">
+<meta property="og:description" content="{{ item.description }}">
+<meta property="og:site_name" content="LandRegistry.company">
+<meta property="og:image" content="{{ site_origin }}/static/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ item.title }} | LandRegistry.company">
+<meta name="twitter:description" content="{{ item.description }}">
+{% endblock %}
+
+{% block head_extra %}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -53,42 +70,79 @@
 {% endblock %}
 
 {% block content %}
-<main>
-    <section class="hero hero-compact">
-        <div class="shell">
-            <nav class="breadcrumbs" aria-label="Breadcrumb">
-                <a href="/">Home</a>
-                <span>/</span>
-                <a href="/{{ item.section }}">{{ section_label }}</a>
-                <span>/</span>
-                <span>{{ item.title }}</span>
+    <!-- Hero -->
+    <header class="pt-28 pb-12 bg-zinc-950 border-b border-white/5">
+        <div class="max-w-7xl mx-auto px-6">
+            <!-- Breadcrumbs -->
+            <nav class="flex flex-wrap items-center gap-2 text-xs text-zinc-500 mb-8" aria-label="Breadcrumb">
+                <a href="/" class="hover:text-white transition-colors">Home</a>
+                <iconify-icon icon="solar:alt-arrow-right-linear" width="12"></iconify-icon>
+                <a href="/{{ item.section }}" class="hover:text-white transition-colors">{{ section_label }}</a>
+                <iconify-icon icon="solar:alt-arrow-right-linear" width="12"></iconify-icon>
+                <span class="text-zinc-400">{{ item.title }}</span>
             </nav>
-            <p class="eyebrow">{{ item.primary_keyword }}</p>
-            <h1>{{ item.title }}</h1>
-            <p class="hero-copy">{{ item.description }}</p>
-            <div class="content-meta">
-                <span>Published {{ item.published_at }}</span>
-                <span>Last updated {{ item.updated_at }}</span>
-                <span>{{ item.intent }}</span>
+
+            <span class="uppercase text-[10px] text-emerald-400 tracking-[0.2em] font-semibold">{{ item.primary_keyword }}</span>
+            <h1 class="text-3xl md:text-4xl lg:text-5xl text-white font-medium tracking-tighter mt-3 mb-6 max-w-4xl">
+                {{ item.title }}
+            </h1>
+            <p class="text-lg text-zinc-400 font-light max-w-3xl leading-relaxed mb-6">
+                {{ item.description }}
+            </p>
+            <div class="flex flex-wrap items-center gap-4 text-[10px] uppercase tracking-widest text-zinc-600">
+                <span class="flex items-center gap-1.5">
+                    <iconify-icon icon="solar:calendar-linear" width="14"></iconify-icon>
+                    Published {{ item.published_at }}
+                </span>
+                <span class="flex items-center gap-1.5">
+                    <iconify-icon icon="solar:refresh-linear" width="14"></iconify-icon>
+                    Updated {{ item.updated_at }}
+                </span>
+                <span class="px-2 py-0.5 rounded-full bg-white/5 border border-white/10">{{ item.intent }}</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Article Content -->
+    <section class="bg-zinc-950 py-12">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8">
+                <!-- Main Article -->
+                <article class="glass-panel rounded-3xl p-8 md:p-12 article-prose">
+                    {{ item.body_html|safe }}
+                </article>
+
+                <!-- Sidebar -->
+                <aside class="hidden lg:block">
+                    <div class="glass-panel rounded-3xl p-8 sticky top-28">
+                        <span class="uppercase text-[10px] text-emerald-400 tracking-widest font-semibold">Primary next step</span>
+                        <h2 class="text-xl text-white font-medium mt-3 mb-4 tracking-tight">{{ cta_title }}</h2>
+                        <p class="text-zinc-400 text-sm leading-relaxed mb-6">{{ cta_body }}</p>
+                        <a href="/search" class="w-full inline-flex items-center justify-center gap-3 bg-white text-black rounded-full px-6 py-4 hover:bg-zinc-200 transition-all shadow-[0_0_30px_rgba(255,255,255,0.1)] group">
+                            <span class="text-xs tracking-wider uppercase font-semibold">{{ cta_label }}</span>
+                            <iconify-icon icon="solar:arrow-right-linear" width="14" class="group-hover:translate-x-1 transition-transform"></iconify-icon>
+                        </a>
+                        <p class="text-[10px] text-zinc-600 mt-4 leading-relaxed uppercase tracking-wider">
+                            Search official HM Land Registry CCOD data with company-name, company-number, director, and address workflows.
+                        </p>
+                    </div>
+                </aside>
             </div>
         </div>
     </section>
 
-    <section class="section">
-        <div class="shell article-layout">
-            <article class="article-body">
-                {{ item.body_html|safe }}
-            </article>
-            <aside class="article-aside">
-                <div class="sticky-panel">
-                    <p class="eyebrow">Primary next step</p>
-                    <h2>{{ cta_title }}</h2>
-                    <p>{{ cta_body }}</p>
-                    <a href="/search" class="button button-primary" data-track-event="content_cta_click" data-page-type="{{ item.section }}" data-slug="{{ item.slug }}" data-cta-variant="{{ item.cta_variant }}">{{ cta_label }}</a>
-                    <p class="aside-note">Search official HM Land Registry CCOD data with company-name, company-number, director, and address workflows.</p>
-                </div>
-            </aside>
+    <!-- Mobile CTA (shown below article on small screens) -->
+    <section class="lg:hidden bg-zinc-950 pb-12">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="glass-panel rounded-3xl p-8 text-center">
+                <span class="uppercase text-[10px] text-emerald-400 tracking-widest font-semibold">Next step</span>
+                <h2 class="text-xl text-white font-medium mt-3 mb-4">{{ cta_title }}</h2>
+                <p class="text-zinc-400 text-sm mb-6">{{ cta_body }}</p>
+                <a href="/search" class="inline-flex items-center gap-3 bg-white text-black rounded-full px-8 py-4 hover:bg-zinc-200 transition-all group">
+                    <span class="text-xs tracking-wider uppercase font-semibold">{{ cta_label }}</span>
+                    <iconify-icon icon="solar:arrow-right-linear" width="14" class="group-hover:translate-x-1 transition-transform"></iconify-icon>
+                </a>
+            </div>
         </div>
     </section>
-</main>
 {% endblock %}
