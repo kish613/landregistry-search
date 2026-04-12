@@ -3,25 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Search UK corporate land ownership by company name, registration number, director name, or property address. Access official HM Land Registry CCOD data instantly.">
+    <meta name="description" content="Search official HM Land Registry CCOD data by company name, company number, director, or address for legal and due-diligence workflows.">
     <meta name="robots" content="index, follow">
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://landregistry.company/search">
-    <meta property="og:title" content="Search UK Land Registry | Company Property Ownership Lookup">
-    <meta property="og:description" content="Search UK corporate land ownership by company name, registration number, director name, or property address.">
+    <meta property="og:title" content="Company Property Ownership Search | LandRegistry.company">
+    <meta property="og:description" content="Search official HM Land Registry CCOD data by company, director, or address for legal and due-diligence workflows.">
     <meta property="og:site_name" content="UK Land Registry Search">
     <meta property="og:image" content="https://landregistry.company/static/og-image.png">
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:url" content="https://landregistry.company/search">
-    <meta name="twitter:title" content="Search UK Land Registry | Company Property Ownership Lookup">
-    <meta name="twitter:description" content="Search UK corporate land ownership by company name, registration number, director name, or property address.">
+    <meta name="twitter:title" content="Company Property Ownership Search | LandRegistry.company">
+    <meta name="twitter:description" content="Search official HM Land Registry CCOD data by company, director, or address for legal and due-diligence workflows.">
     <meta name="twitter:image" content="https://landregistry.company/static/og-image.png">
 
-    <title>Search UK Land Registry | Company Property Ownership Lookup</title>
+    <title>Company Property Ownership Search | LandRegistry.company</title>
     <link rel="canonical" href="https://landregistry.company/search">
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
     <link rel="alternate icon" href="{{ url_for('static', filename='favicon.ico') }}">
@@ -39,13 +39,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-FQ3GSEPRC2"></script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id={{ ga4_measurement_id }}"></script>
     <script>
         window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}
         gtag('js', new Date());
-        gtag('config', 'G-FQ3GSEPRC2');
+        gtag('config', '{{ ga4_measurement_id }}');
     </script>
+    <script src="{{ url_for('static', filename='js/analytics.js') }}" defer></script>
     <style>
         body {
             font-family: 'Geist', system-ui, sans-serif;
@@ -454,6 +455,12 @@
                     <a href="/search" class="text-white transition-colors duration-300">
                         Registry Search
                     </a>
+                    <a href="/resources" class="hover:text-white transition-colors duration-300">
+                        Resources
+                    </a>
+                    <a href="/blog" class="hover:text-white transition-colors duration-300">
+                        Blog
+                    </a>
                     <a href="/faq" class="hover:text-white transition-colors duration-300">
                         FAQ
                     </a>
@@ -561,7 +568,7 @@
                 </h1>
 
                 <p class="md:text-lg leading-relaxed text-base font-light text-zinc-400 max-w-xl mx-auto">
-                    Search corporate land ownership by company name, registration number, or property address.
+                    Search official HM Land Registry CCOD data by company, director, or address for legal and due-diligence workflows.
                 </p>
             </div>
         </div>
@@ -601,6 +608,19 @@
                         <span><a href="/auth" class="underline hover:text-white">Sign up free</a> for <strong>10 free credits</strong> — or pay per search: <strong>£1</strong> standard | <strong>£3</strong> director</span>
                     </div>
                     {% endif %}
+
+                    <div class="mb-6 rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-4">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <p class="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">Need the workflow first?</p>
+                                <p class="text-sm text-zinc-400">Start with the guides built for legal and due-diligence teams before you run a paid search.</p>
+                            </div>
+                            <div class="flex flex-wrap gap-2 text-xs">
+                                <a href="/resources/company-property-search-uk" class="px-3 py-2 rounded-full border border-white/10 hover:border-white/20 hover:text-white transition-colors" data-track-event="content_cta_click" data-page-type="search" data-cta-variant="support-resource">Company search guide</a>
+                                <a href="/blog" class="px-3 py-2 rounded-full border border-white/10 hover:border-white/20 hover:text-white transition-colors" data-track-event="content_cta_click" data-page-type="search" data-cta-variant="support-blog">Blog & data studies</a>
+                            </div>
+                        </div>
+                    </div>
 
                     <!-- Search Type Selector -->
                     <div class="mb-6">
@@ -870,6 +890,14 @@
         let selectedDirector = null;        // Currently selected director
         let currentDirectorStage = null;    // 'selection' or 'properties'
 
+        function trackSeoEvent(eventName, payload) {
+            if (typeof gtag === 'undefined') {
+                return;
+            }
+
+            gtag('event', eventName, payload);
+        }
+
         // Logout function
         async function logout() {
             try {
@@ -1084,6 +1112,13 @@
 
         // Stage 1: Search for directors (FREE - no credits required)
         async function searchDirectorsStage1(directorName) {
+            trackSeoEvent('search_started', {
+                search_term: directorName,
+                search_type: 'director',
+                page_type: 'search',
+                cta_variant: 'director-stage-1'
+            });
+
             // Show loading state
             btnText.textContent = 'Searching Companies House...';
             btnIcon.classList.add('hidden');
@@ -1353,6 +1388,13 @@
 
         // Execute search using credits
         async function executeSearchWithCredits(searchType, searchValue) {
+            trackSeoEvent('search_started', {
+                search_term: searchValue,
+                search_type: searchType,
+                page_type: 'search',
+                cta_variant: 'registry-search'
+            });
+
             // Show loading state
             btnText.textContent = searchType === 'director' ? 'Searching Companies House...' : 'Searching...';
             btnIcon.classList.add('hidden');
@@ -1438,6 +1480,13 @@
 
         // Initiate Stripe Checkout
         async function initiateCheckout(searchType, searchValue) {
+            trackSeoEvent('checkout_started', {
+                search_term: searchValue,
+                search_type: searchType,
+                page_type: 'search',
+                cta_variant: 'checkout'
+            });
+
             // Show loading state
             const pricePence = SEARCH_PRICES[searchType] || 100;
             btnText.textContent = 'Redirecting to payment...';

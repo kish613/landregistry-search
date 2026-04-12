@@ -3,7 +3,7 @@ Flask Web Application for Property Lookup by Company Number
 With User Account System and Credits
 """
 
-from flask import Flask, render_template, request, jsonify, send_file, session, redirect, url_for
+from flask import Flask, Response, abort, render_template, request, jsonify, send_file, session, redirect, url_for
 import psycopg2
 import psycopg2.extras
 import os
@@ -20,6 +20,8 @@ from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from functools import wraps
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+from app.content import all_content, get_content, list_content
 
 # Load environment variables from .env or env.local
 load_dotenv()
@@ -55,9 +57,10 @@ EMAIL_FROM = os.environ.get('EMAIL_FROM', 'noreply@landregistry.company')
 
 # Base URL for links in emails
 BASE_URL = os.environ.get('BASE_URL', 'http://localhost:5000')
+SITE_ORIGIN = os.environ.get('SITE_ORIGIN', 'https://landregistry.company').rstrip('/')
 
 # Google Analytics 4 Measurement ID (optional)
-app.config['GA4_MEASUREMENT_ID'] = os.environ.get('GA4_MEASUREMENT_ID')
+app.config['GA4_MEASUREMENT_ID'] = os.environ.get('GA4_MEASUREMENT_ID', 'G-FQ3GSEPRC2')
 
 # Credit costs for different search types
 CREDIT_COSTS = {
@@ -93,6 +96,16 @@ used_sessions = set()
 BASE_DIR = Path(__file__).parent.parent
 LOCAL_DATABASE_PATH = BASE_DIR / 'property_data.db'
 
+INDEXABLE_CORE_PAGES = (
+    ('/', datetime(2026, 4, 12)),
+    ('/search', datetime(2026, 4, 12)),
+    ('/resources', datetime(2026, 4, 12)),
+    ('/blog', datetime(2026, 4, 12)),
+    ('/faq', datetime(2026, 4, 12)),
+    ('/about', datetime(2026, 4, 12)),
+    ('/how-to-search-land-registry', datetime(2026, 4, 12)),
+)
+
 
 def get_db_connection():
     """Get database connection (PostgreSQL for production, SQLite for local dev)"""
@@ -113,6 +126,94 @@ def dict_cursor(conn):
         return conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     else:
         return conn.cursor()
+
+
+@app.context_processor
+def inject_site_context():
+    """Expose shared SEO context to templates."""
+
+    return {
+        'ga4_measurement_id': app.config.get('GA4_MEASUREMENT_ID'),
+        'site_origin': SITE_ORIGIN,
+        'current_year': datetime.utcnow().year,
+    }
+
+
+def build_sitemap_items():
+    """Collect indexable URLs for sitemap rendering."""
+
+    items = [
+        {
+            'loc': f'{SITE_ORIGIN}{path}',
+            'lastmod': updated.strftime('%Y-%m-%d'),
+        }
+        for path, updated in INDEXABLE_CORE_PAGES
+    ]
+
+    for item in all_content():
+        items.append(
+            {
+                'loc': f'{SITE_ORIGIN}{item.canonical_path}',
+                'lastmod': item.updated_at,
+            }
+        )
+
+    return items
+
+
+def render_content_index(section, page_title, page_description, schema_name, eyebrow):
+    """Render a content index page."""
+
+    return render_template(
+        'content_index.html',
+        items=list_content(section),
+        page_type=section,
+        page_title=page_title,
+        page_description=page_description,
+        schema_name=schema_name,
+        eyebrow=eyebrow,
+        meta_title=f'{page_title} | LandRegistry.company',
+        meta_description=page_description,
+        canonical_url=f'{SITE_ORIGIN}/{section}',
+    )
+
+
+def render_content_detail(section, slug):
+    """Render a detail page from the filesystem content layer."""
+
+    item = get_content(section, slug)
+    if not item:
+        abort(404)
+
+    section_label = 'Resources' if section == 'resources' else 'Blog'
+    cta_title = (
+        'Start a company ownership search'
+        if section == 'resources'
+        else 'Move from research to evidence'
+    )
+    cta_body = (
+        'Run the entity, director, or site through the registry tool and validate the ownership trail fast.'
+        if section == 'resources'
+        else 'Use the live registry tool to validate the companies, titles, and addresses discussed in this article.'
+    )
+    cta_label = (
+        'Start a company ownership search'
+        if section == 'resources'
+        else 'Search company ownership data'
+    )
+
+    return render_template(
+        'content_page.html',
+        item=item,
+        section_label=section_label,
+        cta_title=cta_title,
+        cta_body=cta_body,
+        cta_label=cta_label,
+        meta_title=f'{item.title} | LandRegistry.company',
+        meta_description=item.description,
+        canonical_url=f'{SITE_ORIGIN}{item.canonical_path}',
+        og_type='article',
+    )
 
 
 # ============================================
@@ -1111,6 +1212,82 @@ def landing():
     """Landing page"""
     user = get_current_user()
     return render_template('landing.html', user=user)
+
+
+@app.route('/robots.txt')
+def robots_txt():
+    """Dynamic robots.txt so production always serves a valid file."""
+
+    body = "\n".join(
+        [
+            "User-agent: *",
+            "Allow: /",
+            "Disallow: /auth",
+            "Disallow: /api/",
+            f"Sitemap: {SITE_ORIGIN}/sitemap.xml",
+        ]
+    )
+    return Response(body, mimetype='text/plain')
+
+
+@app.route('/sitemap.xml')
+def sitemap_xml():
+    """Dynamic sitemap driven by live routes and filesystem content."""
+
+    return Response(
+        render_template('sitemap.xml', items=build_sitemap_items()),
+        mimetype='application/xml',
+    )
+
+
+@app.route('/rss.xml')
+def rss_feed():
+    """RSS feed for blog content."""
+
+    return Response(
+        render_template('rss.xml', items=list_content('blog')),
+        mimetype='application/rss+xml',
+    )
+
+
+@app.route('/resources')
+def resources_index():
+    """SEO resource hub."""
+
+    return render_content_index(
+        'resources',
+        'Legal & Due Diligence Resources',
+        'Commercial-intent guides for company ownership checks, CCOD workflows, and legal due diligence in England and Wales.',
+        'LandRegistry.company legal resources',
+        'Evergreen money pages',
+    )
+
+
+@app.route('/resources/<slug>')
+def resource_detail(slug):
+    """Filesystem-backed resource detail page."""
+
+    return render_content_detail('resources', slug)
+
+
+@app.route('/blog')
+def blog_index():
+    """Editorial hub for research, explainers, and data studies."""
+
+    return render_content_index(
+        'blog',
+        'Research, Guides & Data Studies',
+        'Editorial content for legal, property, and due-diligence teams researching UK corporate ownership and HM Land Registry CCOD data.',
+        'LandRegistry.company blog',
+        'Editorial engine',
+    )
+
+
+@app.route('/blog/<slug>')
+def blog_detail(slug):
+    """Filesystem-backed blog detail page."""
+
+    return render_content_detail('blog', slug)
 
 
 @app.route('/search')

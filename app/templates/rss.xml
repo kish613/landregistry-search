@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>LandRegistry.company Blog</title>
+    <link>{{ site_origin }}/blog</link>
+    <description>Legal and due-diligence research on UK corporate property ownership.</description>
+    <language>en-gb</language>
+    {% for item in items %}
+    <item>
+      <title>{{ item.title }}</title>
+      <link>{{ site_origin }}{{ item.canonical_path }}</link>
+      <description>{{ item.description }}</description>
+      <pubDate>{{ item.published_dt.strftime("%a, %d %b %Y 00:00:00 GMT") }}</pubDate>
+      <guid>{{ site_origin }}{{ item.canonical_path }}</guid>
+    </item>
+    {% endfor %}
+  </channel>
+</rss>

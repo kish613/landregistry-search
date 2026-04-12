@@ -1,0 +1,63 @@
+{% extends "seo_base.html" %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  "name": {{ schema_name|tojson }},
+  "itemListElement": [
+    {% for item in items %}
+    {
+      "@type": "ListItem",
+      "position": {{ loop.index }},
+      "url": "{{ site_origin }}{{ item.canonical_path }}",
+      "name": {{ item.title|tojson }}
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<main>
+    <section class="hero hero-compact">
+        <div class="shell">
+            <p class="eyebrow">{{ eyebrow }}</p>
+            <h1>{{ page_title }}</h1>
+            <p class="hero-copy">{{ page_description }}</p>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="shell">
+            <div class="card-grid">
+                {% for item in items %}
+                <article class="card">
+                    <p class="kicker">{{ item.primary_keyword }}</p>
+                    <h2><a href="{{ item.canonical_path }}">{{ item.title }}</a></h2>
+                    <p>{{ item.description }}</p>
+                    <div class="card-meta">
+                        <span>Updated {{ item.updated_at }}</span>
+                        <span>{{ item.intent }}</span>
+                    </div>
+                    <a href="{{ item.canonical_path }}" class="text-link">Read the guide</a>
+                </article>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <section class="section section-muted">
+        <div class="shell split-callout">
+            <div>
+                <p class="eyebrow">Paid-search acquisition</p>
+                <h2>Move from research to action</h2>
+                <p>Every guide is built to answer legal and due-diligence questions, then move the reader into a company ownership search with one clear next step.</p>
+            </div>
+            <a href="/search" class="button button-primary" data-track-event="content_cta_click" data-page-type="{{ page_type }}" data-cta-variant="index-primary">Open the search tool</a>
+        </div>
+    </section>
+</main>
+{% endblock %}

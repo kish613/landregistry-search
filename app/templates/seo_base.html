@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ meta_title }}</title>
+    <meta name="description" content="{{ meta_description }}">
+    <meta name="robots" content="{{ meta_robots|default('index, follow') }}">
+    <link rel="canonical" href="{{ canonical_url }}">
+    <meta property="og:type" content="{{ og_type|default('website') }}">
+    <meta property="og:url" content="{{ canonical_url }}">
+    <meta property="og:title" content="{{ meta_title }}">
+    <meta property="og:description" content="{{ meta_description }}">
+    <meta property="og:site_name" content="LandRegistry.company">
+    <meta property="og:image" content="{{ site_origin }}/static/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="{{ canonical_url }}">
+    <meta name="twitter:title" content="{{ meta_title }}">
+    <meta name="twitter:description" content="{{ meta_description }}">
+    <meta name="twitter:image" content="{{ site_origin }}/static/og-image.png">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/site.css') }}">
+    {% if ga4_measurement_id %}
+    <script async src="https://www.googletagmanager.com/gtag/js?id={{ ga4_measurement_id }}"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        window.gtag = gtag;
+        gtag('js', new Date());
+        gtag('config', '{{ ga4_measurement_id }}');
+    </script>
+    {% endif %}
+    <script src="{{ url_for('static', filename='js/analytics.js') }}" defer></script>
+    {% block structured_data %}{% endblock %}
+</head>
+<body>
+    <header class="site-header">
+        <div class="shell nav-shell">
+            <a href="/" class="brand">
+                <span class="brand-mark" aria-hidden="true"></span>
+                <span>landregistry<span class="brand-accent">.company</span></span>
+            </a>
+            <nav class="site-nav" aria-label="Primary">
+                <a href="/search">Search</a>
+                <a href="/resources">Resources</a>
+                <a href="/blog">Blog</a>
+                <a href="/faq">FAQ</a>
+                <a href="/about">About</a>
+                <a href="/how-to-search-land-registry">Guide</a>
+            </nav>
+            <a href="/search" class="button button-primary">Search the registry</a>
+        </div>
+    </header>
+
+    {% block content %}{% endblock %}
+
+    <footer class="site-footer">
+        <div class="shell footer-grid">
+            <div>
+                <h2>LandRegistry.company</h2>
+                <p>Search official HM Land Registry CCOD data and cross-check company ownership for legal and due-diligence workflows.</p>
+            </div>
+            <div>
+                <h3>Platform</h3>
+                <ul>
+                    <li><a href="/search">Registry search</a></li>
+                    <li><a href="/resources/company-property-search-uk">Company property search</a></li>
+                    <li><a href="/resources/data-methodology">Data methodology</a></li>
+                </ul>
+            </div>
+            <div>
+                <h3>Editorial</h3>
+                <ul>
+                    <li><a href="/blog">Blog</a></li>
+                    <li><a href="/resources/companies-house-vs-land-registry">Companies House vs Land Registry</a></li>
+                    <li><a href="/resources/press-and-data-requests">Press & data requests</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="shell footer-meta">
+            <span>© {{ current_year }} LandRegistry.company</span>
+            <span>Data sourced from HM Land Registry under the Open Government Licence.</span>
+        </div>
+    </footer>
+</body>
+</html>

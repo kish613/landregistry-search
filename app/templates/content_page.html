@@ -1,0 +1,94 @@
+{% extends "seo_base.html" %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "{{ item.schema_type }}",
+  "headline": {{ item.title|tojson }},
+  "description": {{ item.description|tojson }},
+  "datePublished": "{{ item.published_at }}",
+  "dateModified": "{{ item.updated_at }}",
+  "author": {
+    "@type": "Person",
+    "name": {{ item.author|tojson }}
+  },
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "{{ site_origin }}{{ item.canonical_path }}"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "LandRegistry.company",
+    "url": "{{ site_origin }}"
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "{{ site_origin }}/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "{{ section_label }}",
+      "item": "{{ site_origin }}/{{ item.section }}"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": {{ item.title|tojson }},
+      "item": "{{ site_origin }}{{ item.canonical_path }}"
+    }
+  ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<main>
+    <section class="hero hero-compact">
+        <div class="shell">
+            <nav class="breadcrumbs" aria-label="Breadcrumb">
+                <a href="/">Home</a>
+                <span>/</span>
+                <a href="/{{ item.section }}">{{ section_label }}</a>
+                <span>/</span>
+                <span>{{ item.title }}</span>
+            </nav>
+            <p class="eyebrow">{{ item.primary_keyword }}</p>
+            <h1>{{ item.title }}</h1>
+            <p class="hero-copy">{{ item.description }}</p>
+            <div class="content-meta">
+                <span>Published {{ item.published_at }}</span>
+                <span>Last updated {{ item.updated_at }}</span>
+                <span>{{ item.intent }}</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="shell article-layout">
+            <article class="article-body">
+                {{ item.body_html|safe }}
+            </article>
+            <aside class="article-aside">
+                <div class="sticky-panel">
+                    <p class="eyebrow">Primary next step</p>
+                    <h2>{{ cta_title }}</h2>
+                    <p>{{ cta_body }}</p>
+                    <a href="/search" class="button button-primary" data-track-event="content_cta_click" data-page-type="{{ item.section }}" data-slug="{{ item.slug }}" data-cta-variant="{{ item.cta_variant }}">{{ cta_label }}</a>
+                    <p class="aside-note">Search official HM Land Registry CCOD data with company-name, company-number, director, and address workflows.</p>
+                </div>
+            </aside>
+        </div>
+    </section>
+</main>
+{% endblock %}
