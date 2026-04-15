@@ -52,9 +52,15 @@ def log(msg):
 
 
 def download_dataset(slug, dest_path):
-    """Download the latest full CSV for a dataset via the Land Registry API."""
+    """Download the latest full CSV for a dataset via the Land Registry API.
+
+    The API uses a two-step download flow:
+      1. GET /datasets/{slug}/{file_name} with auth → JSON containing a
+         presigned S3 URL (valid_for_seconds ≈ 10).
+      2. GET the presigned URL *without* auth headers → actual file stream.
+    """
     url = f"{API_BASE}/datasets/{slug}"
-    headers = {'Authorization': API_KEY}
+    headers = {'Authorization': API_KEY, 'Accept': 'application/json'}
 
     log(f"Fetching dataset metadata from {url} ...")
     resp = requests.get(url, headers=headers, timeout=30)
@@ -78,19 +84,28 @@ def download_dataset(slug, dest_path):
     if not full_file:
         raise RuntimeError(f"No downloadable resource found for dataset '{slug}'")
 
-    # Build download URL: prefer explicit url/download_url, fall back to constructing from file_name
-    download_url = full_file.get('url') or full_file.get('download_url')
     resource_file_name = full_file.get('file_name') or full_file.get('name')
-    if not download_url:
-        if resource_file_name:
-            download_url = f"{API_BASE}/datasets/{slug}/{resource_file_name}"
-        else:
-            raise RuntimeError(f"No download URL or file_name in resource for '{slug}': {full_file}")
+    if not resource_file_name:
+        raise RuntimeError(f"No file_name in resource for '{slug}': {full_file}")
 
-    file_name = resource_file_name or slug
-    log(f"Downloading {file_name} from {download_url} ...")
+    # Step 1: Request a presigned download URL from the API
+    download_api_url = f"{API_BASE}/datasets/{slug}/{resource_file_name}"
+    log(f"Requesting download URL for {resource_file_name} ...")
+    dl_resp = requests.get(download_api_url, headers=headers, timeout=30)
+    dl_resp.raise_for_status()
+    dl_data = dl_resp.json()
+    dl_result = dl_data.get('result', dl_data)
 
-    with requests.get(download_url, headers=headers, stream=True, timeout=1800) as r:
+    presigned_url = dl_result.get('download_url')
+    if not presigned_url:
+        raise RuntimeError(
+            f"API did not return a download_url for '{slug}/{resource_file_name}': {dl_data}"
+        )
+    valid_for = dl_result.get('valid_for_seconds', '?')
+    log(f"  Got presigned URL (valid for {valid_for}s), downloading ...")
+
+    # Step 2: Download from the presigned S3 URL — no auth headers
+    with requests.get(presigned_url, stream=True, timeout=1800) as r:
         r.raise_for_status()
         total = 0
         with open(dest_path, 'wb') as f:
