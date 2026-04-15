@@ -23,6 +23,7 @@ import os
 import sys
 import time
 import tempfile
+import zipfile
 import requests
 import psycopg2
 
@@ -105,16 +106,36 @@ def download_dataset(slug, dest_path):
     log(f"  Got presigned URL (valid for {valid_for}s), downloading ...")
 
     # Step 2: Download from the presigned S3 URL — no auth headers
+    # Download to a temporary file first since the API may return a ZIP
+    download_path = dest_path + '.download'
     with requests.get(presigned_url, stream=True, timeout=1800) as r:
         r.raise_for_status()
         total = 0
-        with open(dest_path, 'wb') as f:
+        with open(download_path, 'wb') as f:
             for chunk in r.iter_content(chunk_size=1024 * 1024):
                 f.write(chunk)
                 total += len(chunk)
                 if total % (100 * 1024 * 1024) == 0:
                     log(f"  ... {total / (1024*1024):.0f} MB downloaded")
-        log(f"  Downloaded {total / (1024*1024):.1f} MB -> {dest_path}")
+        log(f"  Downloaded {total / (1024*1024):.1f} MB")
+
+    # Step 3: If the downloaded file is a ZIP, extract the CSV from it
+    if zipfile.is_zipfile(download_path):
+        log(f"  File is a ZIP archive, extracting ...")
+        with zipfile.ZipFile(download_path, 'r') as zf:
+            csv_names = [n for n in zf.namelist() if n.lower().endswith('.csv')]
+            if not csv_names:
+                raise RuntimeError(f"ZIP for '{slug}' contains no CSV files: {zf.namelist()}")
+            csv_name = csv_names[0]
+            log(f"  Extracting {csv_name} from ZIP ...")
+            zf.extract(csv_name, os.path.dirname(dest_path))
+            extracted = os.path.join(os.path.dirname(dest_path), csv_name)
+            os.rename(extracted, dest_path)
+        os.remove(download_path)
+        log(f"  Extracted CSV -> {dest_path}")
+    else:
+        os.rename(download_path, dest_path)
+        log(f"  File is already a CSV -> {dest_path}")
 
 
 def normalize_company_reg(value):
