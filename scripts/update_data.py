@@ -213,13 +213,15 @@ def _flush_batch(cur, conn, prop_buf, propr_buf, prop_columns, propr_columns):
     if prop_buf.tell() > 0:
         prop_buf.seek(0)
         cur.copy_expert(
-            f"COPY properties_staging ({prop_columns}) FROM STDIN WITH CSV",
+            f"COPY properties_staging ({prop_columns}) FROM STDIN WITH ("
+            f"FORMAT csv, FORCE_NOT_NULL (property_address_upper, postcode_upper))",
             prop_buf,
         )
     if propr_buf.tell() > 0:
         propr_buf.seek(0)
         cur.copy_expert(
-            f"COPY proprietors_staging ({propr_columns}) FROM STDIN WITH CSV",
+            f"COPY proprietors_staging ({propr_columns}) FROM STDIN WITH ("
+            f"FORMAT csv, FORCE_NOT_NULL (company_reg_normalized, proprietor_name_upper))",
             propr_buf,
         )
     conn.commit()
@@ -261,7 +263,7 @@ def load_csv_into_staging(conn, csv_path, dataset):
     skipped = 0
     batch_rows = 0
 
-    with open(csv_path, 'r', encoding='utf-8-sig') as f:
+    with open(csv_path, 'r', encoding='utf-8-sig', errors='replace') as f:
         reader = csv.DictReader(f)
         for row in reader:
             title_number = row.get('Title Number', '').strip()
