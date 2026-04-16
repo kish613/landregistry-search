@@ -138,6 +138,18 @@ def download_dataset(slug, dest_path):
         log(f"  File is already a CSV -> {dest_path}")
 
 
+def safe_str(value):
+    """Convert a value to a stripped string, handling None from csv.DictReader.
+
+    csv.DictReader sets field values to None (not '') when a row has fewer
+    columns than the header.  dict.get(key, '') only returns '' when the
+    key is *missing*, not when it maps to None.  This helper covers both.
+    """
+    if value is None:
+        return ''
+    return str(value).strip()
+
+
 def normalize_company_reg(value):
     if not value:
         return ''
@@ -266,30 +278,30 @@ def load_csv_into_staging(conn, csv_path, dataset):
     with open(csv_path, 'r', encoding='utf-8-sig', errors='replace') as f:
         reader = csv.DictReader(f)
         for row in reader:
-            title_number = row.get('Title Number', '').strip()
+            title_number = safe_str(row.get('Title Number'))
             if not title_number:
                 continue
 
             properties_count += 1
             row_num = properties_count  # sequential, 1-based
 
-            property_address = row.get('Property Address', '').strip()
-            postcode = row.get('Postcode', '').strip()
+            property_address = safe_str(row.get('Property Address'))
+            postcode = safe_str(row.get('Postcode'))
 
             # Write property row
             prop_writer.writerow([
                 row_num,
                 title_number,
-                row.get('Tenure', '').strip(),
+                safe_str(row.get('Tenure')),
                 property_address,
-                row.get('District', '').strip(),
-                row.get('County', '').strip(),
-                row.get('Region', '').strip(),
+                safe_str(row.get('District')),
+                safe_str(row.get('County')),
+                safe_str(row.get('Region')),
                 postcode,
-                row.get('Multiple Address Indicator', '').strip(),
-                row.get('Price Paid', '').strip(),
-                row.get('Date Proprietor Added', '').strip(),
-                row.get('Additional Proprietor Indicator', '').strip(),
+                safe_str(row.get('Multiple Address Indicator')),
+                safe_str(row.get('Price Paid')),
+                safe_str(row.get('Date Proprietor Added')),
+                safe_str(row.get('Additional Proprietor Indicator')),
                 data_source,
                 normalize_upper(property_address),
                 normalize_upper(postcode),
@@ -297,8 +309,8 @@ def load_csv_into_staging(conn, csv_path, dataset):
 
             # Write proprietor rows with the same _row_num
             for prop_num in range(1, 5):
-                company_no = row.get(f'Company Registration No. ({prop_num})', '').strip()
-                proprietor_name = row.get(f'Proprietor Name ({prop_num})', '').strip()
+                company_no = safe_str(row.get(f'Company Registration No. ({prop_num})'))
+                proprietor_name = safe_str(row.get(f'Proprietor Name ({prop_num})'))
 
                 if not company_no and not proprietor_name:
                     continue
@@ -308,7 +320,7 @@ def load_csv_into_staging(conn, csv_path, dataset):
 
                 country = ''
                 if has_country:
-                    country = row.get(f'Country Incorporated ({prop_num})', '').strip()
+                    country = safe_str(row.get(f'Country Incorporated ({prop_num})'))
 
                 proprietors_count += 1
                 propr_writer.writerow([
@@ -316,11 +328,11 @@ def load_csv_into_staging(conn, csv_path, dataset):
                     prop_num,
                     proprietor_name,
                     company_no,
-                    row.get(f'Proprietorship Category ({prop_num})', '').strip(),
+                    safe_str(row.get(f'Proprietorship Category ({prop_num})')),
                     country,
-                    row.get(f'Proprietor ({prop_num}) Address (1)', '').strip(),
-                    row.get(f'Proprietor ({prop_num}) Address (2)', '').strip(),
-                    row.get(f'Proprietor ({prop_num}) Address (3)', '').strip(),
+                    safe_str(row.get(f'Proprietor ({prop_num}) Address (1)')),
+                    safe_str(row.get(f'Proprietor ({prop_num}) Address (2)')),
+                    safe_str(row.get(f'Proprietor ({prop_num}) Address (3)')),
                     normalize_company_reg(company_no),
                     normalize_upper(proprietor_name),
                 ])
