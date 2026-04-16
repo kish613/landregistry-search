@@ -524,14 +524,26 @@ def main():
         create_staging_tables(conn)
 
         # Step 2: Download and load each dataset one at a time to save disk
+        # Continue past individual dataset failures (e.g. 403 on OCOD) so
+        # that the remaining datasets still get loaded and swapped.
+        datasets_loaded = 0
         with tempfile.TemporaryDirectory() as tmpdir:
             for ds in DATASETS:
-                csv_path = os.path.join(tmpdir, f"{ds['name']}_FULL.csv")
-                download_dataset(ds['slug'], csv_path)
-                load_csv_into_staging(conn, csv_path, ds)
-                # Delete CSV immediately to free disk for the next dataset
-                os.remove(csv_path)
-                log(f"  Deleted {csv_path} to free disk space")
+                try:
+                    csv_path = os.path.join(tmpdir, f"{ds['name']}_FULL.csv")
+                    download_dataset(ds['slug'], csv_path)
+                    load_csv_into_staging(conn, csv_path, ds)
+                    # Delete CSV immediately to free disk for the next dataset
+                    os.remove(csv_path)
+                    log(f"  Deleted {csv_path} to free disk space")
+                    datasets_loaded += 1
+                except Exception as e:
+                    log(f"WARNING: Failed to load {ds['name']}: {e}")
+                    log(f"  Continuing with remaining datasets ...")
+                    conn.rollback()  # rollback any partial transaction
+
+        if datasets_loaded == 0:
+            raise RuntimeError("No datasets loaded successfully — aborting")
 
         # Step 3: Link proprietors to properties using _row_num (all in SQL)
         link_proprietors_to_properties(conn)
