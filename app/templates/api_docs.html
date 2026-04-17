@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}API Reference | LandRegistry.company{% endblock %}
+{% block meta %}
+<meta name="description" content="OpenAPI 3.1 reference for the LandRegistry.company public REST API. Try endpoints live in Swagger UI.">
+<link rel="canonical" href="{{ site_origin }}/docs/api">
+{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui.css">
+<style>
+    .swagger-ui, .swagger-ui .info .title, .swagger-ui .opblock-tag,
+    .swagger-ui .opblock .opblock-summary-description,
+    .swagger-ui .opblock .opblock-summary-path,
+    .swagger-ui table, .swagger-ui .parameter__name,
+    .swagger-ui .response-col_status, .swagger-ui .response-col_description,
+    .swagger-ui .markdown p, .swagger-ui .markdown li { color: #e4e4e7 !important; }
+    .swagger-ui .topbar { display: none; }
+    #swagger-ui { background: #09090b; }
+    .swagger-ui .opblock { border-color: rgba(255,255,255,0.08); background: rgba(24,24,27,0.6); }
+    .swagger-ui .opblock .opblock-section-header { background: rgba(0,0,0,0.2); }
+    .swagger-ui .btn.authorize { border-color: #4ade80; color: #4ade80; }
+    .swagger-ui .opblock.opblock-get .opblock-summary-method { background: #1a4d6e; }
+    .swagger-ui input, .swagger-ui textarea, .swagger-ui select { background: #09090b !important; color: #e4e4e7 !important; border-color: rgba(255,255,255,0.1) !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<main class="pt-28 pb-24 min-h-screen">
+    <section class="max-w-6xl mx-auto px-6 mb-10">
+        <div class="uppercase text-[10px] tracking-widest text-zinc-500 mb-2">API reference</div>
+        <h1 class="text-4xl font-semibold text-white tracking-tight">LandRegistry.company REST API v1</h1>
+        <p class="text-zinc-400 mt-3 max-w-2xl">Authenticate with a bearer API key from <a href="/developers/dashboard" class="text-emerald-400 underline">the developer dashboard</a>. Click <span class="text-white">Authorize</span> below to try endpoints live.</p>
+    </section>
+    <div id="swagger-ui" class="max-w-6xl mx-auto px-6"></div>
+</main>
+
+<script src="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui-bundle.js"></script>
+<script src="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui-standalone-preset.js"></script>
+<script>
+    window.onload = () => {
+        window.ui = SwaggerUIBundle({
+            url: '/api/v1/openapi.json',
+            dom_id: '#swagger-ui',
+            deepLinking: true,
+            presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+            layout: 'BaseLayout',
+            persistAuthorization: true,
+        });
+    };
+</script>
+{% endblock %}

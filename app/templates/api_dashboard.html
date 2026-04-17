@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}Developer Dashboard | LandRegistry.company{% endblock %}
+{% block meta %}
+<meta name="robots" content="noindex, nofollow">
+{% endblock %}
+
+{% block content %}
+<main class="pt-28 pb-24 min-h-screen">
+    <section class="max-w-5xl mx-auto px-6">
+        <div class="flex items-end justify-between gap-6 mb-10 flex-wrap">
+            <div>
+                <div class="uppercase text-[10px] tracking-widest text-zinc-500 mb-2">Developer dashboard</div>
+                <h1 class="text-4xl font-semibold text-white tracking-tight">API keys &amp; billing</h1>
+                <p class="text-zinc-400 mt-2">Signed in as <span class="text-zinc-200">{{ user.email }}</span></p>
+            </div>
+            <div class="glass-panel rounded-xl px-5 py-4 text-right">
+                <div class="uppercase text-[10px] tracking-widest text-zinc-500">API credit balance</div>
+                <div class="text-3xl font-semibold text-white mt-1" id="credit-balance">{{ api_credits }}</div>
+                <div class="text-xs text-zinc-500 mt-1">independent from web-UI credits</div>
+            </div>
+        </div>
+
+        <!-- Key creation -->
+        <div class="glass-panel rounded-2xl p-6 mb-6">
+            <div class="flex items-center justify-between gap-4 mb-4">
+                <h2 class="text-xl font-semibold text-white">Your API keys</h2>
+                <button id="create-key-btn" class="px-4 py-2 rounded-lg bg-white text-black text-xs font-semibold tracking-wide hover:bg-zinc-200 transition">+ New key</button>
+            </div>
+
+            <div id="new-key-banner" class="hidden mb-4 rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-4">
+                <div class="text-[10px] uppercase tracking-widest text-emerald-300 mb-1">Your new key — copy now, it won't be shown again</div>
+                <div class="flex items-center gap-3">
+                    <code id="new-key-value" class="text-sm text-emerald-200 break-all"></code>
+                    <button id="copy-key-btn" class="px-3 py-1 rounded border border-emerald-400/40 text-emerald-300 text-xs hover:bg-emerald-400/10">Copy</button>
+                </div>
+                <p id="new-key-bonus" class="hidden mt-3 text-xs text-emerald-200"></p>
+            </div>
+
+            {% if keys %}
+            <div class="divide-y divide-white/5">
+                {% for key in keys %}
+                <div class="py-4 flex items-center justify-between gap-4">
+                    <div>
+                        <div class="text-sm text-white font-medium">{{ key.name }}</div>
+                        <div class="text-xs text-zinc-500 mt-1">
+                            <code>{{ key.key_prefix }}…</code>
+                            · created {{ key.created_at.strftime('%Y-%m-%d') if key.created_at else '—' }}
+                            {% if key.last_used_at %}· last used {{ key.last_used_at.strftime('%Y-%m-%d %H:%M') }}{% else %}· never used{% endif %}
+                            · {{ key.rate_limit_per_min }} req/min
+                        </div>
+                    </div>
+                    {% if key.revoked_at %}
+                    <span class="text-xs text-zinc-500 uppercase tracking-widest">revoked</span>
+                    {% else %}
+                    <button data-revoke="{{ key.id }}" class="px-3 py-1.5 rounded-lg border border-red-500/30 text-red-300 text-xs hover:bg-red-500/10">Revoke</button>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-zinc-500">No keys yet. Create one to start making API calls.</p>
+            {% endif %}
+        </div>
+
+        <!-- Billing -->
+        <div class="glass-panel rounded-2xl p-6 mb-6">
+            <h2 class="text-xl font-semibold text-white mb-4">Top up API credits</h2>
+            <div class="grid md:grid-cols-3 gap-4">
+                {% for id, pack in packs.items() %}
+                <div class="rounded-xl border border-white/10 p-5">
+                    <div class="uppercase text-[10px] tracking-widest text-zinc-500 mb-1">{{ id.title() }}</div>
+                    <div class="text-2xl font-semibold text-white">£{{ '%.2f'|format(pack.price_pence / 100) }}</div>
+                    <div class="text-sm text-zinc-400 mt-1">{{ pack.credits }} credits</div>
+                    <button data-pack="{{ id }}" class="topup-btn mt-4 w-full px-4 py-2 rounded-lg bg-white text-black text-xs font-semibold tracking-wide hover:bg-zinc-200 transition">Buy</button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Quick start -->
+        <div class="glass-panel rounded-2xl p-6">
+            <h2 class="text-xl font-semibold text-white mb-4">Quick start</h2>
+            <ol class="list-decimal list-inside space-y-2 text-sm text-zinc-400 mb-4">
+                <li>Create an API key above and copy the raw value.</li>
+                <li>Send it as a bearer token on every request.</li>
+                <li>Check your balance + usage at <code class="text-zinc-200">/api/v1/me</code>.</li>
+            </ol>
+            <pre class="text-xs text-zinc-300 overflow-x-auto"><code>curl https://landregistry.company/api/v1/me \
+  -H "Authorization: Bearer lr_live_..."</code></pre>
+            <p class="text-xs text-zinc-500 mt-3">
+                Full reference at <a href="/docs/api" class="text-emerald-400 underline">/docs/api</a>
+                · OpenAPI spec at <a href="/api/v1/openapi.json" class="text-emerald-400 underline">/api/v1/openapi.json</a>
+            </p>
+        </div>
+    </section>
+</main>
+
+<script>
+document.getElementById('create-key-btn').addEventListener('click', async () => {
+    const name = prompt('Name this key (e.g. "Zapier integration")', 'Default key');
+    if (name === null) return;
+    const resp = await fetch('/developers/api-keys', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name: name || 'Default key'}),
+    });
+    const body = await resp.json();
+    if (!body.success) { alert(body.error || 'Failed to create key'); return; }
+    const banner = document.getElementById('new-key-banner');
+    document.getElementById('new-key-value').textContent = body.api_key;
+    if (body.first_key_bonus_credits) {
+        const bonus = document.getElementById('new-key-bonus');
+        bonus.textContent = `You've been credited with ${body.first_key_bonus_credits} free API credits to get started.`;
+        bonus.classList.remove('hidden');
+    }
+    banner.classList.remove('hidden');
+    setTimeout(() => window.location.reload(), 15000);
+});
+
+document.getElementById('copy-key-btn').addEventListener('click', () => {
+    const value = document.getElementById('new-key-value').textContent;
+    navigator.clipboard.writeText(value);
+});
+
+document.querySelectorAll('[data-revoke]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        if (!confirm('Revoke this key? This cannot be undone.')) return;
+        const resp = await fetch(`/developers/api-keys/${btn.dataset.revoke}/revoke`, {method: 'POST'});
+        if (resp.ok) window.location.reload();
+    });
+});
+
+document.querySelectorAll('.topup-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        btn.disabled = true; btn.textContent = 'Redirecting...';
+        const resp = await fetch('/developers/api-billing/checkout', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({pack: btn.dataset.pack}),
+        });
+        const body = await resp.json();
+        if (body.checkout_url) { window.location.href = body.checkout_url; }
+        else { alert(body.error || 'Failed to start checkout'); btn.disabled = false; btn.textContent = 'Buy'; }
+    });
+});
+</script>
+{% endblock %}

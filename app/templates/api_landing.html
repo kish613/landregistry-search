@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Developer API | LandRegistry.company{% endblock %}
+{% block meta %}
+<meta name="description" content="Public REST API for UK Land Registry CCOD/OCOD company ownership data. Pay-as-you-go API credits, bearer-token authentication, OpenAPI-documented endpoints.">
+<link rel="canonical" href="{{ site_origin }}/developers">
+{% endblock %}
+
+{% block content %}
+<main class="pt-28 pb-24 min-h-screen">
+    <section class="max-w-5xl mx-auto px-6">
+        <div class="text-center mb-16">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-white/5 text-[10px] uppercase tracking-widest text-zinc-400 mb-6">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                REST API · v1 · Stable
+            </div>
+            <h1 class="text-5xl md:text-6xl font-semibold tracking-tight gradient-text mb-6">
+                Land Registry data, one HTTP call away.
+            </h1>
+            <p class="text-lg text-zinc-400 max-w-2xl mx-auto">
+                Look up properties owned by UK and overseas companies, or resolve directors to their full property portfolios. Bearer-token auth, prepaid credits, JSON in and out.
+            </p>
+            <div class="mt-8 flex flex-wrap gap-3 justify-center">
+                {% if user %}
+                <a href="/developers/dashboard" class="px-6 py-3 rounded-lg bg-white text-black text-sm font-semibold tracking-wide hover:bg-zinc-200 transition">Open dashboard</a>
+                {% else %}
+                <a href="/auth" class="px-6 py-3 rounded-lg bg-white text-black text-sm font-semibold tracking-wide hover:bg-zinc-200 transition">Create account</a>
+                {% endif %}
+                <a href="/docs/api" class="px-6 py-3 rounded-lg border border-white/15 text-white text-sm font-semibold tracking-wide hover:bg-white/5 transition">API reference</a>
+            </div>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-5 mb-16">
+            <div class="glass-panel rounded-2xl p-6">
+                <div class="uppercase text-[10px] tracking-widest text-zinc-500 mb-3">Example request</div>
+                <pre class="text-xs text-zinc-300 overflow-x-auto"><code>curl https://landregistry.company/api/v1/properties/by-company-number?number=09876543 \
+  -H "Authorization: Bearer lr_live_..."</code></pre>
+            </div>
+            <div class="glass-panel rounded-2xl p-6">
+                <div class="uppercase text-[10px] tracking-widest text-zinc-500 mb-3">Response</div>
+                <pre class="text-xs text-zinc-300 overflow-x-auto"><code>{
+  "query": { "company_number": "09876543" },
+  "data": [
+    {
+      "title_number": "TT123456",
+      "property_address": "1 EXAMPLE ROAD, LONDON",
+      "postcode": "SW1A 1AA",
+      "tenure": "Freehold",
+      "proprietor_name": "ACME PROPERTIES LTD",
+      ...
+    }
+  ],
+  "pagination": { "total": 3, "limit": 50, "offset": 0 }
+}</code></pre>
+            </div>
+        </div>
+
+        <h2 class="text-2xl font-semibold text-white tracking-tight mb-6">Endpoints</h2>
+        <div class="space-y-3 mb-16">
+            <div class="glass-panel rounded-xl p-5 flex items-center justify-between gap-4">
+                <div>
+                    <code class="text-sm text-emerald-400">GET /properties/by-company-number</code>
+                    <p class="text-xs text-zinc-500 mt-1">Properties owned by a specific company number.</p>
+                </div>
+                <span class="text-xs text-zinc-400 whitespace-nowrap">1 credit</span>
+            </div>
+            <div class="glass-panel rounded-xl p-5 flex items-center justify-between gap-4">
+                <div>
+                    <code class="text-sm text-emerald-400">GET /properties/by-company-name</code>
+                    <p class="text-xs text-zinc-500 mt-1">Fuzzy match on proprietor names + suggestions.</p>
+                </div>
+                <span class="text-xs text-zinc-400 whitespace-nowrap">1 credit</span>
+            </div>
+            <div class="glass-panel rounded-xl p-5 flex items-center justify-between gap-4">
+                <div>
+                    <code class="text-sm text-emerald-400">GET /properties/by-address</code>
+                    <p class="text-xs text-zinc-500 mt-1">Substring match on address or postcode.</p>
+                </div>
+                <span class="text-xs text-zinc-400 whitespace-nowrap">1 credit</span>
+            </div>
+            <div class="glass-panel rounded-xl p-5 flex items-center justify-between gap-4">
+                <div>
+                    <code class="text-sm text-emerald-400">GET /directors/search</code>
+                    <p class="text-xs text-zinc-500 mt-1">Find individual directors by name (Companies House).</p>
+                </div>
+                <span class="text-xs text-zinc-400 whitespace-nowrap">1 credit</span>
+            </div>
+            <div class="glass-panel rounded-xl p-5 flex items-center justify-between gap-4">
+                <div>
+                    <code class="text-sm text-emerald-400">GET /directors/properties</code>
+                    <p class="text-xs text-zinc-500 mt-1">Resolve a director to every company property they appear on.</p>
+                </div>
+                <span class="text-xs text-zinc-400 whitespace-nowrap">3 credits</span>
+            </div>
+        </div>
+
+        <h2 class="text-2xl font-semibold text-white tracking-tight mb-6">Pricing</h2>
+        <div class="grid md:grid-cols-3 gap-4 mb-16">
+            {% for id, pack in packs.items() %}
+            <div class="glass-panel rounded-2xl p-6 hover-lift">
+                <div class="uppercase text-[10px] tracking-widest text-zinc-500 mb-2">{{ id.title() }}</div>
+                <div class="text-3xl font-semibold text-white">£{{ '%.2f'|format(pack.price_pence / 100) }}</div>
+                <div class="text-sm text-zinc-400 mt-1">{{ pack.credits }} API credits</div>
+                <div class="text-xs text-zinc-500 mt-3">~{{ '%.1f'|format(pack.price_pence / pack.credits / 100) }}p per property lookup</div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="glass-panel rounded-2xl p-8 text-center">
+            <h2 class="text-2xl font-semibold text-white mb-2">Ready in 60 seconds</h2>
+            <p class="text-zinc-400 max-w-xl mx-auto mb-6">Create an account, mint an API key, and call your first endpoint. First key comes with 50 free credits.</p>
+            {% if user %}
+            <a href="/developers/dashboard" class="inline-block px-6 py-3 rounded-lg bg-white text-black text-sm font-semibold tracking-wide hover:bg-zinc-200 transition">Open developer dashboard</a>
+            {% else %}
+            <a href="/auth" class="inline-block px-6 py-3 rounded-lg bg-white text-black text-sm font-semibold tracking-wide hover:bg-zinc-200 transition">Sign up &rarr;</a>
+            {% endif %}
+        </div>
+    </section>
+</main>
+{% endblock %}

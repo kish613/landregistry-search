@@ -1222,7 +1222,10 @@ def robots_txt():
         [
             "User-agent: *",
             "Allow: /",
+            "Allow: /developers",
+            "Allow: /docs/api",
             "Disallow: /auth",
+            "Disallow: /developers/dashboard",
             "Disallow: /api/",
             f"Sitemap: {SITE_ORIGIN}/sitemap.xml",
         ]
@@ -2179,9 +2182,249 @@ def reload_data():
         }), 500
 
 
+# ============================================
+# DEVELOPER (PUBLIC API) DASHBOARD
+# ============================================
+# Routes for signed-in users to manage their API keys, top up API credits,
+# and view usage. The API itself lives in app.api_v1 as a Flask Blueprint;
+# the routes below power the HTML dashboard around it.
+
+from app import api_v1 as api_v1_module  # noqa: E402
+from app.api_v1 import (  # noqa: E402
+    API_CREDIT_PACKS,
+    FREE_SIGNUP_API_CREDITS,
+    api_v1 as _api_v1_blueprint,
+    credit_api_account,
+    generate_api_key,
+)
+
+app.register_blueprint(_api_v1_blueprint)
+
+
+def _user_api_keys(user_id):
+    """Return non-revoked API keys for a user, newest first."""
+    conn = get_db_connection()
+    try:
+        cursor = dict_cursor(conn)
+        if DATABASE_URL:
+            cursor.execute(
+                """
+                SELECT id, name, key_prefix, scopes, rate_limit_per_min,
+                       created_at, last_used_at, revoked_at
+                FROM api_keys
+                WHERE user_id = %s
+                ORDER BY id DESC
+                """,
+                (user_id,),
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT id, name, key_prefix, scopes, rate_limit_per_min,
+                       created_at, last_used_at, revoked_at
+                FROM api_keys
+                WHERE user_id = ?
+                ORDER BY id DESC
+                """,
+                (user_id,),
+            )
+        return [dict(r) if hasattr(r, 'keys') else r for r in cursor.fetchall()]
+    finally:
+        conn.close()
+
+
+def _user_has_ever_had_api_key(user_id):
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        if DATABASE_URL:
+            cursor.execute("SELECT 1 FROM api_keys WHERE user_id = %s LIMIT 1", (user_id,))
+        else:
+            cursor.execute("SELECT 1 FROM api_keys WHERE user_id = ? LIMIT 1", (user_id,))
+        return cursor.fetchone() is not None
+    finally:
+        conn.close()
+
+
+def _get_api_credit_balance(user_id):
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        if DATABASE_URL:
+            cursor.execute("SELECT api_credits FROM users WHERE id = %s", (user_id,))
+        else:
+            cursor.execute("SELECT api_credits FROM users WHERE id = ?", (user_id,))
+        row = cursor.fetchone()
+        return row[0] if row else 0
+    finally:
+        conn.close()
+
+
+@app.route('/developers')
+def developers_landing():
+    """Public marketing page for the API."""
+    user = get_current_user()
+    return render_template('api_landing.html', user=user, packs=API_CREDIT_PACKS)
+
+
+@app.route('/developers/dashboard')
+@login_required
+def developers_dashboard():
+    user = get_current_user()
+    keys = _user_api_keys(user['id'])
+    balance = _get_api_credit_balance(user['id'])
+    return render_template(
+        'api_dashboard.html',
+        user=user,
+        keys=keys,
+        api_credits=balance,
+        packs=API_CREDIT_PACKS,
+    )
+
+
+@app.route('/developers/api-keys', methods=['POST'])
+@login_required
+def developers_create_key():
+    """Mint a new API key. Returns the raw key ONCE — never stored."""
+    user = get_current_user()
+    data = request.get_json() or {}
+    name = (data.get('name') or 'Default key').strip()[:120]
+
+    # First-key signup bonus: if this is the user's first-ever key, also grant
+    # the free API credits so they can start calling the API immediately.
+    first_key = not _user_has_ever_had_api_key(user['id'])
+
+    raw_key, prefix, key_hash = generate_api_key()
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        if DATABASE_URL:
+            cursor.execute(
+                """
+                INSERT INTO api_keys (user_id, name, key_prefix, key_hash)
+                VALUES (%s, %s, %s, %s)
+                RETURNING id
+                """,
+                (user['id'], name, prefix, key_hash),
+            )
+            key_id = cursor.fetchone()[0]
+        else:
+            cursor.execute(
+                """
+                INSERT INTO api_keys (user_id, name, key_prefix, key_hash)
+                VALUES (?, ?, ?, ?)
+                """,
+                (user['id'], name, prefix, key_hash),
+            )
+            key_id = cursor.lastrowid
+        conn.commit()
+    finally:
+        conn.close()
+
+    if first_key:
+        credit_api_account(
+            user_id=user['id'],
+            amount=FREE_SIGNUP_API_CREDITS,
+            transaction_type='signup_bonus',
+            description=f'Welcome bonus: {FREE_SIGNUP_API_CREDITS} free API credits',
+        )
+
+    return jsonify({
+        'success': True,
+        'api_key': raw_key,
+        'key_id': key_id,
+        'prefix': prefix,
+        'name': name,
+        'first_key_bonus_credits': FREE_SIGNUP_API_CREDITS if first_key else 0,
+    })
+
+
+@app.route('/developers/api-keys/<int:key_id>/revoke', methods=['POST'])
+@login_required
+def developers_revoke_key(key_id):
+    user = get_current_user()
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        if DATABASE_URL:
+            cursor.execute(
+                """
+                UPDATE api_keys
+                SET revoked_at = CURRENT_TIMESTAMP
+                WHERE id = %s AND user_id = %s AND revoked_at IS NULL
+                """,
+                (key_id, user['id']),
+            )
+        else:
+            cursor.execute(
+                """
+                UPDATE api_keys
+                SET revoked_at = CURRENT_TIMESTAMP
+                WHERE id = ? AND user_id = ? AND revoked_at IS NULL
+                """,
+                (key_id, user['id']),
+            )
+        affected = cursor.rowcount
+        conn.commit()
+    finally:
+        conn.close()
+    if not affected:
+        return jsonify({'success': False, 'error': 'Key not found.'}), 404
+    return jsonify({'success': True})
+
+
+@app.route('/developers/api-billing/checkout', methods=['POST'])
+@login_required
+def developers_api_checkout():
+    """Create a Stripe Checkout session for an API credit pack."""
+    user = get_current_user()
+    data = request.get_json() or {}
+    pack_id = data.get('pack')
+    pack = API_CREDIT_PACKS.get(pack_id)
+    if not pack:
+        return jsonify({'success': False, 'error': 'Unknown credit pack.'}), 400
+    if not stripe.api_key or stripe.api_key == 'sk_test_your_secret_key_here':
+        return jsonify({'success': False, 'error': 'Payment system not configured.'}), 500
+    base_url = request.url_root.rstrip('/')
+    try:
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            mode='payment',
+            customer_email=user['email'],
+            line_items=[{
+                'price_data': {
+                    'currency': 'gbp',
+                    'product_data': {
+                        'name': f"LandRegistry API – {pack['label']}",
+                        'description': f"{pack['credits']} API credits for api.landregistry.company",
+                    },
+                    'unit_amount': pack['price_pence'],
+                },
+                'quantity': 1,
+            }],
+            success_url=f"{base_url}/developers/dashboard?topup=success",
+            cancel_url=f"{base_url}/developers/dashboard?topup=cancelled",
+            metadata={
+                'purpose': 'api_credits',
+                'user_id': str(user['id']),
+                'pack': pack_id,
+                'credits': str(pack['credits']),
+            },
+        )
+        return jsonify({'success': True, 'checkout_url': checkout_session.url})
+    except stripe.error.StripeError as exc:
+        return jsonify({'success': False, 'error': str(exc)}), 500
+
+
+@app.route('/docs/api')
+def api_docs_page():
+    """Swagger UI rendered against /api/v1/openapi.json."""
+    return render_template('api_docs.html')
+
+
 if __name__ == '__main__':
     # Check if database exists (local development only)
     if not DATABASE_URL and not LOCAL_DATABASE_PATH.exists():
         print("Warning: Database not found. Please run scripts/load_data.py first.")
-    
+
     app.run(debug=True, host='127.0.0.1', port=5000)
