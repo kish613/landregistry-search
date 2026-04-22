@@ -698,6 +698,11 @@
                         <p class="text-zinc-500 text-sm" id="resultsCount"></p>
                     </div>
                     <div class="flex gap-2">
+                        <select id="sortSelect" class="px-4 py-2 rounded-lg bg-zinc-900 border border-white/10 text-zinc-400 hover:text-white hover:border-white/20 transition-all text-xs uppercase tracking-wider font-medium focus:outline-none">
+                            <option value="address_asc">Sort: Address A–Z</option>
+                            <option value="company_asc">Sort: Company A–Z</option>
+                            <option value="date_desc">Sort: Date added (newest)</option>
+                        </select>
                         <button id="exportCsvBtn" class="px-4 py-2 rounded-lg bg-zinc-900 border border-white/10 text-zinc-400 hover:text-white hover:border-white/20 transition-all text-xs uppercase tracking-wider font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                             <iconify-icon id="csvIcon" icon="solar:document-text-linear" width="14"></iconify-icon>
                             <iconify-icon id="csvSpinner" icon="svg-spinners:ring-resize" width="14" class="hidden"></iconify-icon>
