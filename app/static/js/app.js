@@ -22,6 +22,31 @@ document.addEventListener('DOMContentLoaded', function() {
     const reloadBtn = document.getElementById('reloadBtn');
     const suggestionsSection = document.getElementById('suggestionsSection');
     const suggestionsList = document.getElementById('suggestionsList');
+    const sortSelect = document.getElementById('sortSelect');
+
+    let currentResults = [];
+
+    function sortResults(results, mode) {
+        const sorted = [...results];
+        const cmp = (a, b) => (a || '').toLowerCase().localeCompare((b || '').toLowerCase());
+        if (mode === 'company_asc') {
+            sorted.sort((a, b) => cmp(a.proprietor_name, b.proprietor_name));
+        } else if (mode === 'date_desc') {
+            sorted.sort((a, b) => {
+                const ta = Date.parse(a.date_proprietor_added) || -Infinity;
+                const tb = Date.parse(b.date_proprietor_added) || -Infinity;
+                return tb - ta;
+            });
+        } else {
+            sorted.sort((a, b) => cmp(a.property_address, b.property_address));
+        }
+        return sorted;
+    }
+
+    sortSelect.addEventListener('change', function() {
+        if (!currentResults.length) return;
+        renderResults(sortResults(currentResults, sortSelect.value));
+    });
 
     // Update label and placeholder when search type changes
     function updateSearchUI() {
@@ -158,7 +183,15 @@ document.addEventListener('DOMContentLoaded', function() {
         const searchTypeText = searchType === 'name' ? 'Company Name' : (searchType === 'address' ? 'Address' : 'Company Number');
         resultsTitle.textContent = `Properties Found for ${searchTypeText}: ${searchLabel}`;
         resultsCount.textContent = `Found ${count} ${count === 1 ? 'property' : 'properties'}`;
-        
+
+        currentResults = results;
+        sortSelect.value = 'address_asc';
+        renderResults(sortResults(currentResults, sortSelect.value));
+
+        resultsSection.style.display = 'block';
+    }
+
+    function renderResults(results) {
         resultsList.innerHTML = results.map(property => `
             <div class="property-card">
                 <div class="property-header">
@@ -226,8 +259,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             </div>
         `).join('');
-
-        resultsSection.style.display = 'block';
     }
 
     function showNoResults() {
