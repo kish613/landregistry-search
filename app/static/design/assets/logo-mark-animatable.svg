@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="100%" height="100%">
+    <defs>
+        
+
+        <linearGradient id="mainGrad" x1="295" y1="150" x2="480" y2="350" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#8bc63e"></stop>
+            <stop offset="50%" stop-color="#469931"></stop>
+            <stop offset="100%" stop-color="#19521b"></stop>
+        </linearGradient>
+
+        <linearGradient id="pillarGrad" x1="487" y1="150" x2="487" y2="350" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#19521b"></stop>
+            <stop offset="100%" stop-color="#09210b"></stop>
+        </linearGradient>
+
+        <mask id="furrowMask">
+            <rect x="0" y="0" width="100%" height="100%" fill="white"></rect>
+            <path fill="black" d="M 465 306 Q 405 306 315 260 Q 405 312 465 312 Z"></path>
+            <path fill="black" d="M 465 328 Q 405 328 305 290 Q 405 334 465 334 Z"></path>
+        </mask>
+    </defs>
+
+    <g class="logo-container">
+        <rect x="250" y="100" width="300" height="400" fill="transparent"></rect>
+        
+        <g class="mark-group">
+            <path class="main-shape" fill="url(#mainGrad)" mask="url(#furrowMask)" d="&#xA;                M 490 150 &#xA;                L 455 185 &#xA;                L 350 185 &#xA;                A 15 15 0 0 0 335 200 &#xA;                L 335 245 &#xA;                C 335 280, 400 290, 465 290 &#xA;                L 465 350 &#xA;                L 335 350 &#xA;                A 40 40 0 0 1 295 310 &#xA;                L 295 190 &#xA;                A 40 40 0 0 1 335 150 &#xA;                Z"></path>
+
+            <path class="pillar" fill="url(#pillarGrad)" d="&#xA;                M 470 185 &#xA;                L 505 150 &#xA;                L 505 350 &#xA;                L 470 350 &#xA;                Z"></path>
+
+            <rect class="window w1" x="429" y="195" width="16" height="16" rx="1.5"></rect>
+            <rect class="window w2" x="449" y="195" width="16" height="16" rx="1.5"></rect>
+            <rect class="window w3" x="429" y="215" width="16" height="16" rx="1.5"></rect>
+            <rect class="window w4" x="449" y="215" width="16" height="16" rx="1.5"></rect>
+        </g>
+
+        <text class="title-text" x="400" y="430" text-anchor="middle">LAND REGISTRY</text>
+        <text class="sub-text" x="400" y="465" text-anchor="middle">Secure <tspan class="pipe"> &amp;nbsp;|&amp;nbsp; </tspan> Accurate <tspan class="pipe"> &amp;nbsp;|&amp;nbsp; </tspan> Trusted</text>
+    </g>
+</svg>

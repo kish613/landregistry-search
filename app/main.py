@@ -1214,6 +1214,70 @@ def landing():
     return render_template('landing.html', user=user)
 
 
+@app.route('/api/ticker')
+def api_ticker():
+    """Recent proprietor additions for the live register ticker on the landing page."""
+    try:
+        conn = get_db_connection()
+        cursor = dict_cursor(conn)
+        if DATABASE_URL:
+            cursor.execute("""
+                SELECT
+                    pr.proprietor_name,
+                    pr.company_registration_no,
+                    p.postcode,
+                    p.date_proprietor_added,
+                    COALESCE(p.data_source, 'CCOD') AS data_source
+                FROM properties p
+                INNER JOIN proprietors pr ON p.id = pr.property_id
+                WHERE pr.proprietor_name IS NOT NULL
+                  AND pr.proprietor_name <> ''
+                  AND pr.company_registration_no IS NOT NULL
+                  AND pr.company_registration_no <> ''
+                  AND p.postcode IS NOT NULL
+                  AND p.postcode <> ''
+                ORDER BY p.id DESC
+                LIMIT 20
+            """)
+        else:
+            cursor.execute("""
+                SELECT
+                    pr.proprietor_name,
+                    pr.company_registration_no,
+                    p.postcode,
+                    p.date_proprietor_added,
+                    COALESCE(p.data_source, 'CCOD') AS data_source
+                FROM properties p
+                INNER JOIN proprietors pr ON p.id = pr.property_id
+                WHERE pr.proprietor_name IS NOT NULL
+                  AND pr.proprietor_name <> ''
+                  AND pr.company_registration_no IS NOT NULL
+                  AND pr.company_registration_no <> ''
+                  AND p.postcode IS NOT NULL
+                  AND p.postcode <> ''
+                ORDER BY p.id DESC
+                LIMIT 20
+            """)
+        rows = cursor.fetchall()
+        conn.close()
+
+        items = []
+        for r in rows:
+            row = dict(r) if not isinstance(r, dict) else r
+            source = (row.get('data_source') or 'CCOD').upper()
+            items.append({
+                'tag': 'Overseas' if source == 'OCOD' else 'Proprietor',
+                'company': row.get('proprietor_name') or '',
+                'crn': row.get('company_registration_no') or '',
+                'postcode': row.get('postcode') or '',
+                'date_added': row.get('date_proprietor_added') or '',
+            })
+        return jsonify({'items': items})
+    except Exception as exc:
+        app.logger.warning("ticker query failed: %s", exc)
+        return jsonify({'items': []}), 200
+
+
 @app.route('/robots.txt')
 def robots_txt():
     """Dynamic robots.txt so production always serves a valid file."""

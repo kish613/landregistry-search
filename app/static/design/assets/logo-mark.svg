@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 260" width="260" height="260" role="img" aria-label="Land Registry">
+  <defs>
+    <linearGradient id="lrMarkGrad" x1="60" y1="30" x2="220" y2="230" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#8bc63e"></stop>
+      <stop offset="50%" stop-color="#2f7a2a"></stop>
+      <stop offset="100%" stop-color="#133a12"></stop>
+    </linearGradient>
+    <linearGradient id="lrPillarGrad" x1="200" y1="30" x2="200" y2="230" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1a4f1a"></stop>
+      <stop offset="100%" stop-color="#061506"></stop>
+    </linearGradient>
+    <mask id="lrFurrowMask">
+      <rect x="0" y="0" width="260" height="260" fill="white"></rect>
+      <path fill="black" d="M 193 170 Q 140 170 65 132 Q 140 176 193 176 Z"></path>
+      <path fill="black" d="M 193 189 Q 140 189 58 158 Q 140 194 193 194 Z"></path>
+    </mask>
+  </defs>
+  <g transform="translate(-35, -20)">
+    <path fill="url(#lrMarkGrad)" mask="url(#lrFurrowMask)" d="M 225 45&#xA;             L 186 83&#xA;             L 85 83&#xA;             A 18 18 0 0 0 67 101&#xA;             L 67 150&#xA;             C 67 186 137 196 202 196&#xA;             L 202 255&#xA;             L 85 255&#xA;             A 44 44 0 0 1 41 211&#xA;             L 41 89&#xA;             A 44 44 0 0 1 85 45 Z"></path>
+    <path fill="url(#lrPillarGrad)" d="M 206 82&#xA;             L 243 45&#xA;             L 243 255&#xA;             L 206 255 Z"></path>
+    <rect x="165" y="95" width="18" height="18" rx="2" fill="#cfe9b2"></rect>
+    <rect x="187" y="95" width="18" height="18" rx="2" fill="#cfe9b2"></rect>
+    <rect x="165" y="116" width="18" height="18" rx="2" fill="#cfe9b2"></rect>
+    <rect x="187" y="116" width="18" height="18" rx="2" fill="#cfe9b2"></rect>
+  </g>
+</svg>
