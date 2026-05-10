@@ -26,19 +26,9 @@
   "description": {{ item.description|tojson }},
   "datePublished": "{{ item.published_at }}",
   "dateModified": "{{ item.updated_at }}",
-  "author": {
-    "@type": "Person",
-    "name": {{ item.author|tojson }}
-  },
-  "mainEntityOfPage": {
-    "@type": "WebPage",
-    "@id": "{{ site_origin }}{{ item.canonical_path }}"
-  },
-  "publisher": {
-    "@type": "Organization",
-    "name": "LandRegistry.company",
-    "url": "{{ site_origin }}"
-  }
+  "author": {"@type": "Person", "name": {{ item.author|tojson }}},
+  "mainEntityOfPage": {"@type": "WebPage", "@id": "{{ site_origin }}{{ item.canonical_path }}"},
+  "publisher": {"@type": "Organization", "name": "LandRegistry.company", "url": "{{ site_origin }}"}
 }
 </script>
 <script type="application/ld+json">
@@ -46,83 +36,144 @@
   "@context": "https://schema.org",
   "@type": "BreadcrumbList",
   "itemListElement": [
-    {
-      "@type": "ListItem",
-      "position": 1,
-      "name": "Home",
-      "item": "{{ site_origin }}/"
-    },
-    {
-      "@type": "ListItem",
-      "position": 2,
-      "name": "{{ section_label }}",
-      "item": "{{ site_origin }}/{{ item.section }}"
-    },
-    {
-      "@type": "ListItem",
-      "position": 3,
-      "name": {{ item.title|tojson }},
-      "item": "{{ site_origin }}{{ item.canonical_path }}"
-    }
+    {"@type": "ListItem", "position": 1, "name": "Home", "item": "{{ site_origin }}/"},
+    {"@type": "ListItem", "position": 2, "name": "{{ section_label }}", "item": "{{ site_origin }}/{{ item.section }}"},
+    {"@type": "ListItem", "position": 3, "name": {{ item.title|tojson }}, "item": "{{ site_origin }}{{ item.canonical_path }}"}
   ]
 }
 </script>
+<style>
+    .cp-hero {
+        padding: 80px 0 48px;
+        border-bottom: 1px solid var(--line);
+        background: var(--paper);
+    }
+    .cp-shell { max-width: 1100px; margin: 0 auto; padding: 0 32px; }
+    .cp-breadcrumb {
+        display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+        font: 500 11px/1 var(--font-body);
+        text-transform: uppercase; letter-spacing: 0.14em;
+        color: var(--ink-4); margin-bottom: 24px;
+    }
+    .cp-breadcrumb a { color: var(--ink-3); text-decoration: none; }
+    .cp-breadcrumb a:hover { color: var(--ink); }
+    .cp-breadcrumb .crumb-current { color: var(--ink); }
+    .cp-eyebrow {
+        font: 600 11px/1 var(--font-body);
+        text-transform: uppercase; letter-spacing: 0.14em;
+        color: var(--brand-700);
+    }
+    .cp-h1 {
+        font: 600 clamp(2rem, 1.2rem + 2.5vw, 3rem)/1.1 var(--font-display);
+        letter-spacing: -0.02em;
+        max-width: 880px; margin: 14px 0 16px;
+    }
+    .cp-lede {
+        font: var(--t-body-lg); color: var(--ink-3);
+        max-width: 720px; margin: 0 0 22px;
+    }
+    .cp-meta {
+        display: flex; flex-wrap: wrap; align-items: center; gap: 18px;
+        font: 500 11px/1.3 var(--font-mono); color: var(--ink-4);
+    }
+    .cp-meta-pill {
+        padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px;
+        background: var(--paper-soft);
+        font: 500 11px/1.3 var(--font-body);
+        text-transform: uppercase; letter-spacing: 0.12em;
+    }
+
+    .cp-body {
+        padding: 48px 0;
+    }
+    .cp-grid {
+        display: grid; grid-template-columns: minmax(0, 1fr) 320px;
+        gap: 56px; align-items: start;
+    }
+    @media (max-width: 960px) { .cp-grid { grid-template-columns: 1fr; gap: 32px; } }
+    .cp-article {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 48px 56px;
+        box-shadow: var(--shadow-1);
+    }
+    @media (max-width: 720px) { .cp-article { padding: 28px 24px; } }
+    .cp-article.article-prose,
+    .cp-article .article-prose { max-width: none; }
+
+    .cp-aside-card {
+        position: sticky; top: 84px;
+        background: #fff; border: 1px solid var(--line-strong);
+        border-radius: 6px;
+        padding: 24px;
+        box-shadow: var(--shadow-1);
+    }
+    .cp-aside-card .eyebrow { color: var(--brand-700); margin-bottom: 10px; }
+    .cp-aside-card h2 {
+        font: 600 1.125rem/1.3 var(--font-display);
+        color: var(--ink); margin: 0 0 12px;
+    }
+    .cp-aside-card p {
+        font: var(--t-body-sm); color: var(--ink-3); margin: 0 0 18px;
+    }
+    .cp-aside-card .lr-btn { width: 100%; }
+    .cp-aside-foot {
+        font: var(--t-caption); color: var(--ink-4);
+        margin-top: 14px;
+        text-transform: uppercase; letter-spacing: 0.1em;
+        line-height: 1.5;
+    }
+
+    .cp-mobile-cta {
+        background: var(--brand-700); color: #fff;
+        padding: 48px 32px; text-align: center;
+    }
+    @media (min-width: 961px) { .cp-mobile-cta { display: none; } }
+    .cp-mobile-cta h2 { font: 600 1.5rem/1.2 var(--font-display); color: #fff; margin: 8px 0; }
+    .cp-mobile-cta p { color: rgba(255,255,255,0.78); margin: 0 0 20px; max-width: 480px; margin-left: auto; margin-right: auto; }
+</style>
 {% endblock %}
 
 {% block content %}
-    <!-- Hero -->
-    <header class="pt-28 pb-12 bg-zinc-950 border-b border-white/5">
-        <div class="max-w-7xl mx-auto px-6">
-            <!-- Breadcrumbs -->
-            <nav class="flex flex-wrap items-center gap-2 text-xs text-zinc-500 mb-8" aria-label="Breadcrumb">
-                <a href="/" class="hover:text-white transition-colors">Home</a>
-                <iconify-icon icon="solar:alt-arrow-right-linear" width="12"></iconify-icon>
-                <a href="/{{ item.section }}" class="hover:text-white transition-colors">{{ section_label }}</a>
-                <iconify-icon icon="solar:alt-arrow-right-linear" width="12"></iconify-icon>
-                <span class="text-zinc-400">{{ item.title }}</span>
+    <header class="cp-hero">
+        <div class="cp-shell">
+            <nav class="cp-breadcrumb" aria-label="Breadcrumb">
+                <a href="/">Home</a>
+                <iconify-icon icon="solar:alt-arrow-right-linear" width="11" style="color: var(--ink-5);"></iconify-icon>
+                <a href="/{{ item.section }}">{{ section_label }}</a>
+                <iconify-icon icon="solar:alt-arrow-right-linear" width="11" style="color: var(--ink-5);"></iconify-icon>
+                <span class="crumb-current">{{ item.title }}</span>
             </nav>
 
-            <span class="uppercase text-[10px] text-emerald-400 tracking-[0.2em] font-semibold">{{ item.primary_keyword }}</span>
-            <h1 class="text-3xl md:text-4xl lg:text-5xl text-white font-medium tracking-tighter mt-3 mb-6 max-w-4xl">
-                {{ item.title }}
-            </h1>
-            <p class="text-lg text-zinc-400 font-light max-w-3xl leading-relaxed mb-6">
-                {{ item.description }}
-            </p>
-            <div class="flex flex-wrap items-center gap-4 text-[10px] uppercase tracking-widest text-zinc-600">
-                <span class="flex items-center gap-1.5">
-                    <iconify-icon icon="solar:calendar-linear" width="14"></iconify-icon>
-                    Published {{ item.published_at }}
-                </span>
-                <span class="flex items-center gap-1.5">
-                    <iconify-icon icon="solar:refresh-linear" width="14"></iconify-icon>
-                    Updated {{ item.updated_at }}
-                </span>
-                <span class="px-2 py-0.5 rounded-full bg-white/5 border border-white/10">{{ item.intent }}</span>
+            <span class="cp-eyebrow">{{ item.primary_keyword }}</span>
+            <h1 class="cp-h1">{{ item.title }}</h1>
+            <p class="cp-lede">{{ item.description }}</p>
+            <div class="cp-meta">
+                <span><iconify-icon icon="solar:calendar-linear" width="13" style="vertical-align: -2px; margin-right: 4px;"></iconify-icon> Published {{ item.published_at }}</span>
+                <span><iconify-icon icon="solar:refresh-linear" width="13" style="vertical-align: -2px; margin-right: 4px;"></iconify-icon> Updated {{ item.updated_at }}</span>
+                <span class="cp-meta-pill">{{ item.intent }}</span>
             </div>
         </div>
     </header>
 
-    <!-- Article Content -->
-    <section class="bg-zinc-950 py-12">
-        <div class="max-w-7xl mx-auto px-6">
-            <div class="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8">
-                <!-- Main Article -->
-                <article class="glass-panel rounded-3xl p-8 md:p-12 article-prose">
+    <section class="cp-body">
+        <div class="cp-shell">
+            <div class="cp-grid">
+                <article class="cp-article article-prose">
                     {{ item.body_html|safe }}
                 </article>
 
-                <!-- Sidebar -->
-                <aside class="hidden lg:block">
-                    <div class="glass-panel rounded-3xl p-8 sticky top-28">
-                        <span class="uppercase text-[10px] text-emerald-400 tracking-widest font-semibold">Primary next step</span>
-                        <h2 class="text-xl text-white font-medium mt-3 mb-4 tracking-tight">{{ cta_title }}</h2>
-                        <p class="text-zinc-400 text-sm leading-relaxed mb-6">{{ cta_body }}</p>
-                        <a href="/search" class="w-full inline-flex items-center justify-center gap-3 bg-white text-black rounded-full px-6 py-4 hover:bg-zinc-200 transition-all shadow-[0_0_30px_rgba(255,255,255,0.1)] group">
-                            <span class="text-xs tracking-wider uppercase font-semibold">{{ cta_label }}</span>
-                            <iconify-icon icon="solar:arrow-right-linear" width="14" class="group-hover:translate-x-1 transition-transform"></iconify-icon>
+                <aside>
+                    <div class="cp-aside-card">
+                        <span class="eyebrow">Primary next step</span>
+                        <h2>{{ cta_title }}</h2>
+                        <p>{{ cta_body }}</p>
+                        <a href="/search" class="lr-btn" data-tone="primary" data-block="true" style="padding: 12px 18px;">
+                            <iconify-icon icon="solar:magnifer-linear" width="14"></iconify-icon>
+                            {{ cta_label }}
                         </a>
-                        <p class="text-[10px] text-zinc-600 mt-4 leading-relaxed uppercase tracking-wider">
+                        <p class="cp-aside-foot">
                             Search official HM Land Registry CCOD data with company-name, company-number, director, and address workflows.
                         </p>
                     </div>
@@ -131,18 +182,13 @@
         </div>
     </section>
 
-    <!-- Mobile CTA (shown below article on small screens) -->
-    <section class="lg:hidden bg-zinc-950 pb-12">
-        <div class="max-w-7xl mx-auto px-6">
-            <div class="glass-panel rounded-3xl p-8 text-center">
-                <span class="uppercase text-[10px] text-emerald-400 tracking-widest font-semibold">Next step</span>
-                <h2 class="text-xl text-white font-medium mt-3 mb-4">{{ cta_title }}</h2>
-                <p class="text-zinc-400 text-sm mb-6">{{ cta_body }}</p>
-                <a href="/search" class="inline-flex items-center gap-3 bg-white text-black rounded-full px-8 py-4 hover:bg-zinc-200 transition-all group">
-                    <span class="text-xs tracking-wider uppercase font-semibold">{{ cta_label }}</span>
-                    <iconify-icon icon="solar:arrow-right-linear" width="14" class="group-hover:translate-x-1 transition-transform"></iconify-icon>
-                </a>
-            </div>
-        </div>
+    <section class="cp-mobile-cta">
+        <span class="eyebrow" style="color: rgba(255,255,255,0.65);">Next step</span>
+        <h2>{{ cta_title }}</h2>
+        <p>{{ cta_body }}</p>
+        <a href="/search" class="lr-btn" data-tone="paper">
+            <iconify-icon icon="solar:magnifer-linear" width="14"></iconify-icon>
+            {{ cta_label }}
+        </a>
     </section>
 {% endblock %}

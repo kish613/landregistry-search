@@ -35,41 +35,100 @@
   ]
 }
 </script>
+<style>
+    .ci-hero {
+        padding: 88px 0 64px; text-align: center;
+        border-bottom: 1px solid var(--line);
+    }
+    .ci-hero h1 {
+        font: 600 clamp(2.2rem, 1.2rem + 3vw, 3.4rem)/1.05 var(--font-display);
+        letter-spacing: -0.02em;
+        margin: 18px 0 14px;
+    }
+    .ci-hero p { font: var(--t-body-lg); color: var(--ink-3); max-width: 640px; margin: 0 auto; }
+    .ci-grid {
+        display: grid; grid-template-columns: repeat(3, 1fr); gap: 0;
+        border-top: 1px solid var(--line); border-left: 1px solid var(--line);
+    }
+    @media (max-width: 960px) { .ci-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 640px) { .ci-grid { grid-template-columns: 1fr; } }
+    .ci-card {
+        padding: 28px 28px 24px;
+        border-right: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        background: var(--paper);
+        display: flex; flex-direction: column;
+        text-decoration: none; color: inherit;
+        transition: background 120ms var(--ease);
+    }
+    .ci-card:hover { background: var(--paper-soft); }
+    .ci-card-eyebrow {
+        font: 600 11px/1 var(--font-body);
+        text-transform: uppercase; letter-spacing: 0.14em;
+        color: var(--brand-700);
+    }
+    .ci-card h2 {
+        font: 600 1.25rem/1.3 var(--font-display);
+        letter-spacing: -0.005em;
+        color: var(--ink); margin: 12px 0 10px;
+    }
+    .ci-card p {
+        font: var(--t-body-sm); color: var(--ink-3);
+        margin: 0 0 18px; flex: 1;
+    }
+    .ci-card-meta {
+        display: flex; gap: 14px; align-items: center;
+        font: 500 11px/1.3 var(--font-mono); color: var(--ink-4);
+        margin-bottom: 14px;
+    }
+    .ci-card-link {
+        font: 600 11px/1 var(--font-body);
+        text-transform: uppercase; letter-spacing: 0.14em;
+        color: var(--brand-700);
+        display: inline-flex; align-items: center; gap: 6px;
+        margin-top: auto;
+        padding-top: 14px; border-top: 1px solid var(--line);
+    }
+
+    .ci-cta {
+        background: var(--brand-700); color: #fff;
+        padding: 64px 32px; text-align: center;
+    }
+    .ci-cta .eyebrow { color: rgba(255,255,255,0.65); margin-bottom: 14px; }
+    .ci-cta h2 {
+        font: 600 clamp(1.8rem, 1rem + 1.8vw, 2.6rem)/1.08 var(--font-display);
+        letter-spacing: -0.015em; color: #fff;
+        max-width: 720px; margin: 0 auto 20px;
+    }
+    .ci-cta p { color: rgba(255,255,255,0.78); max-width: 560px; margin: 0 auto 28px; }
+</style>
 {% endblock %}
 
 {% block content %}
-    <!-- Hero -->
-    <header class="pt-32 pb-16 bg-zinc-950 border-b border-white/5">
-        <div class="max-w-7xl mx-auto px-6 text-center">
-            <span class="uppercase text-[10px] text-zinc-500 tracking-[0.3em] border border-white/10 px-4 py-1.5 rounded-full bg-white/5 inline-flex items-center gap-2 mb-8">
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                {{ eyebrow }}
-            </span>
-            <h1 class="text-4xl md:text-5xl lg:text-6xl text-white font-medium tracking-tighter mb-6">
-                {{ page_title }}
-            </h1>
-            <p class="text-lg text-zinc-400 font-light max-w-2xl mx-auto leading-relaxed">
-                {{ page_description }}
-            </p>
+    <header class="ci-hero">
+        <div style="max-width: 720px; margin: 0 auto; padding: 0 24px;">
+            <span class="eyebrow"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--ok);margin-right:8px;vertical-align:1px;"></span>{{ eyebrow }}</span>
+            <h1>{{ page_title }}</h1>
+            <p>{{ page_description }}</p>
         </div>
     </header>
 
-    <!-- Content Grid -->
-    <section class="bg-zinc-950 py-16">
-        <div class="max-w-7xl mx-auto px-6">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <section style="padding: 64px 0;">
+        <div style="max-width: 1200px; margin: 0 auto; padding: 0 32px;">
+            <div class="ci-grid">
                 {% for item in items %}
-                <a href="{{ item.canonical_path }}" class="glass-panel rounded-3xl p-8 hover-lift group block">
-                    <span class="uppercase text-[10px] text-emerald-400 tracking-widest font-semibold">{{ item.primary_keyword }}</span>
-                    <h2 class="text-xl text-white font-medium mt-3 mb-4 tracking-tight group-hover:text-zinc-200 transition-colors">{{ item.title }}</h2>
-                    <p class="text-zinc-500 text-sm leading-relaxed mb-6">{{ item.description }}</p>
-                    <div class="flex items-center gap-4 text-[10px] uppercase tracking-widest text-zinc-600 mb-4">
+                <a href="{{ item.canonical_path }}" class="ci-card">
+                    <span class="ci-card-eyebrow">{{ item.primary_keyword }}</span>
+                    <h2>{{ item.title }}</h2>
+                    <p>{{ item.description }}</p>
+                    <div class="ci-card-meta">
                         <span>Updated {{ item.updated_at }}</span>
+                        <span>·</span>
                         <span>{{ item.intent }}</span>
                     </div>
-                    <span class="text-sm text-amber-400 font-semibold group-hover:text-amber-300 transition-colors flex items-center gap-2">
+                    <span class="ci-card-link">
                         Read the guide
-                        <iconify-icon icon="solar:arrow-right-linear" width="14" class="group-hover:translate-x-1 transition-transform"></iconify-icon>
+                        <iconify-icon icon="solar:arrow-right-linear" width="11"></iconify-icon>
                     </span>
                 </a>
                 {% endfor %}
@@ -77,20 +136,13 @@
         </div>
     </section>
 
-    <!-- CTA Section -->
-    <section class="bg-zinc-950 border-t border-white/5 py-24">
-        <div class="max-w-3xl mx-auto px-6 text-center">
-            <span class="uppercase block text-[10px] text-zinc-500 tracking-widest mb-4">Next step</span>
-            <h2 class="text-3xl md:text-4xl text-white font-medium tracking-tight mb-6">
-                Move from research to action
-            </h2>
-            <p class="text-zinc-400 text-lg mb-10 max-w-xl mx-auto">
-                Every guide is built to answer legal and due-diligence questions, then move the reader into a company ownership search.
-            </p>
-            <a href="/search" class="inline-flex items-center gap-3 bg-white text-black rounded-full px-10 py-5 hover:bg-zinc-200 transition-all shadow-[0_0_40px_rgba(255,255,255,0.15)] hover:shadow-[0_0_60px_rgba(255,255,255,0.25)] group">
-                <span class="text-sm tracking-wider uppercase font-semibold">Open the search tool</span>
-                <iconify-icon icon="solar:arrow-right-linear" width="18" class="group-hover:translate-x-1 transition-transform"></iconify-icon>
-            </a>
-        </div>
+    <section class="ci-cta">
+        <div class="eyebrow">Next step</div>
+        <h2>Move from research to action.</h2>
+        <p>Every guide answers a legal or due-diligence question, then moves the reader into a company ownership search.</p>
+        <a href="/search" class="lr-btn" data-tone="paper">
+            <iconify-icon icon="solar:magnifer-linear" width="14"></iconify-icon>
+            Open the search tool
+        </a>
     </section>
 {% endblock %}
