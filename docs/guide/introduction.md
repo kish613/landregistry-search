@@ -62,5 +62,5 @@ See [Coverage & limits](/data/coverage) for the full list.
 
 ## Next step
 
-Head to the [quick start](/quick-start.html) for a five-minute walkthrough,
+Head to the [quick start](/guide/quick-start) for a five-minute walkthrough,
 or skip straight to [search methods](/guide/search-methods).
