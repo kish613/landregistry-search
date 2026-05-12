@@ -1,0 +1,14 @@
+{
+  "name": "landregistry-docs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "VitePress documentation for landregistry.company",
+  "scripts": {
+    "docs:dev": "vitepress dev",
+    "docs:build": "vitepress build",
+    "docs:preview": "vitepress preview"
+  },
+  "devDependencies": {
+    "vitepress": "^1.5.0"
+  }
+}

@@ -1,0 +1,117 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <!-- Shield Gradient -->
+        <linearGradient id="shieldGloss" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#0f2c52;stop-opacity:1" />
+            <stop offset="50%" style="stop-color:#1a4d6e;stop-opacity:1" />
+            <stop offset="52%" style="stop-color:#2a7a85;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#0f2c52;stop-opacity:1" />
+        </linearGradient>
+        <!-- Gold Face Gradient -->
+        <linearGradient id="goldFace" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color:#fce7f3;stop-opacity:1" />
+            <stop offset="20%" style="stop-color:#eab308;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#a16207;stop-opacity:1" />
+        </linearGradient>
+        <!-- Gold Edge Gradient -->
+        <linearGradient id="goldEdge" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#854d0e;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#ca8a04;stop-opacity:1" />
+        </linearGradient>
+        <!-- Security Pattern -->
+        <pattern id="secGrid" x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse">
+            <path d="M 10 0 L 0 0 0 10" fill="none" stroke="white" stroke-width="0.5" opacity="0.5"/>
+        </pattern>
+        <!-- Deep Shadow -->
+        <filter id="deepShadow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur in="SourceAlpha" stdDeviation="3" />
+            <feOffset dx="2" dy="4" result="offsetblur" />
+            <feComponentTransfer>
+                <feFuncA type="linear" slope="0.3" />
+            </feComponentTransfer>
+            <feMerge>
+                <feMergeNode />
+                <feMergeNode in="SourceGraphic" />
+            </feMerge>
+        </filter>
+    </defs>
+    <g transform="translate(5, 5)">
+        <!-- Shield Base -->
+        <path class="shield-base" fill="url(#shieldGloss)" filter="url(#deepShadow)" d="
+            M 95,185
+            C 155,185 180,145 180,105
+            L 180,55
+            L 145,55
+            L 115,25   
+            L 55,25
+            L 20,60
+            L 20,105
+            C 20,145 45,185 95,185
+            Z
+        "/>
+        <!-- Rim Light Stroke -->
+        <path class="rim-light" fill="none" stroke="#4fd1c5" stroke-width="2" d="
+            M 95,185
+            C 155,185 180,145 180,105
+            L 180,55
+            L 145,55
+            L 115,25   
+            L 55,25
+            L 20,60
+            L 20,105
+            C 20,145 45,185 95,185
+            Z
+        "/>
+        <!-- Document Pattern -->
+        <path class="security-pattern" fill="url(#secGrid)" d="
+            M 115,25
+            L 145,55
+            L 145,105
+            C 145,145 125,175 95,175
+            C 55,175 30,145 30,105
+            L 30,60
+            L 55,25
+            Z
+        " style="mix-blend-mode: overlay;"/>
+        <!-- Top Fold -->
+        <path fill="#0f3d5c" d="
+            M 180,55
+            L 145,55
+            L 145,25
+            C 145,25 180,25 180,55
+            Z
+        "/>
+        <path fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1" d="M 145,25 L 180,55" />
+        <!-- Document Lines -->
+        <g opacity="0.4">
+            <rect x="50" y="75" width="40" height="4" rx="2" fill="white" />
+            <rect x="50" y="87" width="60" height="4" rx="2" fill="white" />
+            <rect x="50" y="99" width="55" height="4" rx="2" fill="white" />
+            <rect x="50" y="111" width="35" height="4" rx="2" fill="white" />
+        </g>
+        <!-- Gold Checkmark -->
+        <g class="checkmark-group" filter="url(#deepShadow)">
+            <path class="gold-edge" fill="url(#goldEdge)" d="
+                M 75,120
+                L 100,145
+                L 155,80
+                L 144,70
+                L 100,122
+                L 86,108
+                L 75,120
+                Z
+            "/>
+            <path class="gold-face gold-bevel" fill="url(#goldFace)" d="
+                M 77,118
+                L 100,141
+                L 151,80
+                L 142,72
+                L 100,122
+                L 86,108
+                L 77,118
+                Z
+            " transform="translate(0, -2)"/>
+            <path fill="white" opacity="0.4" d="M 100,141 L 105,135 L 100,122 Z" style="mix-blend-mode: soft-light;"/>
+        </g>
+    </g>
+</svg>
