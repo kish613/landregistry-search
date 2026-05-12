@@ -7,6 +7,13 @@
     {
       "src": "app/static/**",
       "use": "@vercel/static"
+    },
+    {
+      "src": "docs/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
     }
   ],
   "routes": [
@@ -17,6 +24,22 @@
     {
       "src": "/static/(.*)",
       "dest": "app/static/$1"
+    },
+    {
+      "src": "/docs",
+      "status": 308,
+      "headers": { "Location": "/docs/" }
+    },
+    {
+      "src": "/docs/",
+      "dest": "/docs/index.html"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/docs/([^.]+)",
+      "dest": "/docs/$1.html"
     },
     {
       "src": "/(.*)",

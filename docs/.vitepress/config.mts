@@ -7,6 +7,11 @@ export default defineConfig({
   description:
     'Documentation for landregistry.company — search the UK Land Registry CCOD dataset by company, address, or director.',
 
+  // Mounted under /docs/ on landregistry.company
+  base: '/docs/',
+  // Build into docs/dist/docs/ so Vercel mounts it at /docs/* in the deployment.
+  outDir: 'dist/docs',
+
   cleanUrls: true,
   lastUpdated: true,
 
@@ -174,6 +179,6 @@ export default defineConfig({
   },
 
   sitemap: {
-    hostname: 'https://landregistry.company/docs'
+    hostname: 'https://landregistry.company/docs/'
   }
 })
